@@ -34,7 +34,7 @@ int main() {
     // distribution(generator).
     auto rollOneDie = bind(distribution, generator);
 
-    // Call rollOneDie() on every element.
+    // Call rollOneDie() for every element.
     generate(rollsToAdd.begin(), rollsToAdd.end(), rollOneDie);
 
     int sum = accumulate(rollsToAdd.begin(), rollsToAdd.end(), 0);
