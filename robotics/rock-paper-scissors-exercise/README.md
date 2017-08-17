@@ -21,32 +21,34 @@ Now that you've run the program, you'll notice that it's _boring_; it only has
 two computer players and the human user never gets a turn.
 
 Please fix this by **implementing a human player.** Use the header in
-[PlayerBase.h](/robotics/rock-paper-scissors-exercise/include/PlayerBase.h) as a guide.  You should write a class that inheritcs from `PlayerBase`, then create both a header file ("human.h" or
-the like) and an implementation file ("human.cpp") for it.  Update the CMake build
-accordingly.  At the very minimum, your human player should have a destructor
-function (even if it does nothing) and a `play()` function that asks the human
-player what he or she wants to choose and returns that as a std::string.
+[PlayerBase.h](/robotics/rock-paper-scissors-exercise/include/PlayerBase.h) as
+a guide.  You should write a class that inherits from `PlayerBase`, then
+create both a header file ("human.h" or the like) and an implementation file
+("human.cpp") for it.  Update the CMake build accordingly.  At the very
+minimum, your human player should have a destructor function, even if it does
+nothing, and a `play()` function which asks the human player what he or she
+wants to choose and returns that as a `std::string`.
 
-`PlayerBase.h` supplies utility functions that can help
-you, but you don't have to call them if you don't want to:
+* `PlayerBase.h` supplies utility functions that can help
+  you, but you don't have to call them if you don't want to:
 
-```C++
-bool valid(const std::string& play)
-```
+    ```C++
+    bool valid(const std::string& play)
+    ```
 
-Returns true if the input, converted to lowercase, matches "rock", "paper",
-or "scissors", and false otherwise.
+  Returns true if the input, converted to lowercase, matches "rock", "paper",
+  or "scissors", and false otherwise.
 
-```C++
-bool defeats(const string& first, const string& second, bool print)
-```
+    ```C++
+    bool defeats(const string& first, const string& second, bool print)
+    ```
 
-Returns true if "first beats second".  So, for instance, calling
-`defeats("rock", "paper")` will return false because rock doesn't beat
-paper.
+  Returns true if "first beats second".  So, for instance, calling
+  `defeats("rock", "paper")` will return false because rock doesn't beat
+  paper.
 
-The `print` argument is optional, and defaults to false.  All it does is
-print a message like "Paper covers rock."
+  The `print` argument is optional, and defaults to false.  All it does is
+  print a message like "Paper covers rock."
 
 Once you have completed this task, please use Git to tag your code with the
 tag `phase2`.
