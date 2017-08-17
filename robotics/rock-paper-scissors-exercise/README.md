@@ -8,7 +8,7 @@ buggy code to order to develop a new feature.
 ## Phase 1: Get the code to build
 
 Your first task is to **fix the build error** we're having.  It has something to
-do with CMake, but the previous developer wasn't sure now to fix the problem.
+do with CMake, but the previous developer wasn't sure how to fix the problem.
 But you've done this sort of thing before; we're confident you'll figure it
 out.
 
