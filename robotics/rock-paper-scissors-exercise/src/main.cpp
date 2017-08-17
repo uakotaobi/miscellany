@@ -14,7 +14,6 @@ int main() {
 
     const int winsNeeded = 4;
     const int maxRounds = 2 * winsNeeded - 1;
-    int rounds = 0;
 
     // No winner yet.
     int winner = -1;
@@ -27,7 +26,7 @@ int main() {
 
     vector<int> victories(players.size());
 
-    while (rounds++ < maxRounds) {
+    while (winner == -1) {
         cout << "\n";
 
         string a = players[0]->play();
@@ -51,10 +50,9 @@ int main() {
         players[0]->remember(a, b);
         players[1]->remember(b, a);
 
+        // If we didn't tie then either the first player beat the second
+        // player or vice versa.
         if (a != b) {
-
-            // If we didn't tie then either the first player beat the second
-            // player or vice versa.
 
             int roundVictorIndex = (firstPlayerDefeatedSecondPlayer ? 0 : 1);
             victories[roundVictorIndex]++;
@@ -62,11 +60,10 @@ int main() {
 
             if (victories[roundVictorIndex] >= winsNeeded) {
                 winner = roundVictorIndex;
-                break;
             }
         }
 
-    } // end (while the maximum number of rounds have not yet been played)
+    } // end (while no one has yet won the game)
 
     cout << "\n" << players[winner]->name() << " wins the game! " << string(40, '-') << "\n";
 }
