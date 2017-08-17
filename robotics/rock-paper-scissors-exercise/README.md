@@ -58,7 +58,7 @@ Have you noticed a pattern in the way the computer players make their moves?
 It's very repetitive.  See what you can do to make the computer player harder to anticipate.  This doesn't have to be anything sophisticated (that will come later)&mdash;for now, it just needs to be unpredictable.
 
 Once you have completed this task, please use Git to tag your code with the
-tag "phase3".
+tag `phase3`.
 
 ## Phase 4: Rock-Paper-Scissors-Lizard-Spock
 
