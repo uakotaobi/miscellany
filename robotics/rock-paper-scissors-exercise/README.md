@@ -69,8 +69,8 @@ Change the rules of the game so that:
 * Rock smashes scissors and crushes **lizard**;
 * Paper covers rock and disproves **Spock**;
 * Scissors cuts paper and maims **lizard**;
-* **Lizard** poisons **Spock** and eats paper;
-* **Spock** smashes scissors and vaporizes rock.
+* **Lizard** eats paper and poisons **Spock**;
+* **Spock** vaporizes rock and breaks scissors.
 
 Be sure to update the `ComputerPlayer` and `HumanPlayer` classes.
 
