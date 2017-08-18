@@ -56,7 +56,9 @@ int main() {
 
             int roundVictorIndex = (firstPlayerDefeatedSecondPlayer ? 0 : 1);
             victories[roundVictorIndex]++;
-            cout << "The score is " << victories[0] << " to " << victories[1] << ".\n";
+            cout << "The score is " << victories[0] << " ("
+                 << players[0]->name() << ") to " << victories[1] << " ("
+                 << players[1]->name() << ").\n";
 
             if (victories[roundVictorIndex] >= winsNeeded) {
                 winner = roundVictorIndex;

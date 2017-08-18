@@ -13,7 +13,7 @@ using std::invalid_argument;
 
 PlayerBase::~PlayerBase() { }
 
-void PlayerBase::remember(const string& myLastPlay, const string& theirLastPlay) { }
+void PlayerBase::remember(const string&, const string&) { }
 
 
 // Non-public utility function.  Converts the given string to lowercase using
