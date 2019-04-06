@@ -100,3 +100,28 @@ cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
+
+# --------------------------------------------------------------------------
+# PROS ignores.
+# --------------------------------------------------------------------------
+
+# From # From https://7842navigators.com/tutorials/walkthroughs/introduction-to-github/
+*.log
+bin/output.elf
+*.bin
+bin/output.bin
+bin/_pros_ld_timestamp.o
+*.ini
+compile_commands.json
+desktop.ini
+.vscode/*
+
+# Additional recommendations, adapted from  jpearman's suggestions at https://www.vexforum.com/t/github-with-pros/52291/8.
+**/include/pros
+**/include/okapi
+**/include/display
+**/include/api.h
+**/firmware
+**/common.mk
+**/bin/monolith.elf
+
