@@ -20,6 +20,7 @@ void opcontrol() {
 	pros::Motor front_right_mtr(10);
 	pros::Motor front_left_mtr(9);
 	pros::Motor myMotor(4);
+	myMotor.set_encoder_units(pros::E_MOTOR_ENCODER_ROTATIONS);
 	while (true) {
 		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
 		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
@@ -27,11 +28,22 @@ void opcontrol() {
 		int left = -master.get_analog(ANALOG_LEFT_Y);
 		int right = master.get_analog(ANALOG_RIGHT_Y);
 
-		back_left_mtr = left;
-		back_right_mtr = right;
-		front_left_mtr = left;
-		front_right_mtr = right;
-		//myMotor.move(120);
+		// back_left_mtr = left;
+		// back_right_mtr = right;
+		// front_left_mtr = left;
+		// front_right_mtr = right;
+		pros::lcd::print(2, "Current position: %.1d ", myMotor.get_position());
+		int leftButton = pros::lcd::read_buttons() & LCD_BTN_LEFT;
+		int rightButton = pros::lcd::read_buttons() & LCD_BTN_RIGHT;
+		if (leftButton) {
+			myMotor.move_absolute(0, 10);
+		}
+		if (rightButton) {
+			myMotor.move_absolute(200, -10);
+		}
+		// //myMotor.move(120);
+
+
 
 		pros::delay(20);
 	}
