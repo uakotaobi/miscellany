@@ -1,0 +1,16 @@
+# --------------------------------------------------------------------------
+# CMake ignores.
+# From https://github.com/github/gitignore/blob/master/CMake.gitignore
+# --------------------------------------------------------------------------
+
+Commented out -- PROS needs its Makefile.  Put the CMake ignores down at the
+lower levels where they're actually needed.
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
