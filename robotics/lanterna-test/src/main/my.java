@@ -82,26 +82,14 @@ public class my {
         buttonPanel.setLayoutManager(new LinearLayout(Direction.HORIZONTAL));
 
         // We'll be using these callbacks in multiple places.
-        final Runnable okHandler = new Runnable() {
-            public void run() {
-                // TODO: Set the result to the selected list item.
-                dialogWindow.close();
-            }
-        };
-        final Runnable cancelHandler = new Runnable() {
+        final Runnable closeWindowHandler = new Runnable() {
             public void run() {
                 dialogWindow.close();
             }
         };
 
-        Button okButton = new Button("Ok", okHandler);
-        Button cancelButton = new Button("Cancel", cancelHandler);
-        Button aboutButton = new Button("About", new Runnable() {
-            public void run() {
-                // Show a messagebox.
-                MessageDialog.showMessageDialog(userInterface, "MessageDialog", "Copyleft (Ↄ) The Free Software Foundation.  All Rights Reversed.", MessageDialogButton.OK);
-            }
-        });
+        Button okButton = new Button("Ok", closeWindowHandler);
+        Button cancelButton = new Button("Cancel", closeWindowHandler);
         buttonPanel.addComponent(okButton);
         buttonPanel.addComponent(cancelButton);
 
@@ -121,24 +109,24 @@ public class my {
                         switch (key.getCharacter()) {
                             case 'o':
                                 // User hit the "Ok" button's hotkey.
-                                okHandler.run();
+                                closeWindowHandler.run();
                                 break;
                             case 'c':
                                 // User hit the "Cancel" button's hotkey.
-                                cancelHandler.run();
+                                closeWindowHandler.run();
                                 break;
                         }
                         break;
                     case Enter:
                         if (listBox.isFocused()) {
-                            // Same as hitting the "Ok" button.
+                            // Treat this like selecting an individual list item.
                             listBox.getSelectedItem().run();
-                            okHandler.run();
+                            closeWindowHandler.run();
                         }
                         break;
                     case Escape:
                         // Same as hitting the "Cancel" button.
-                        cancelHandler.run();
+                        closeWindowHandler.run();
                         break;
                 }
             }
