@@ -106,6 +106,10 @@ public class my {
         buttonPanel.addComponent(cancelButton);
 
         // Handle keyboard input for the dialog window.
+        //
+        // I wouldn't have been able to implement this without https://stackoverflow.com/a/39124044.
+        //
+        // My question is why this keyboard listening code is not part of the official documentation.
         class KeyboardEventListener implements WindowListener {
             public boolean onUnhandledKeyStroke(TextGUI arg0, KeyStroke arg1) {
                 return false;
