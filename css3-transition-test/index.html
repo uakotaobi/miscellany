@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+    <head>
+        <title>CSS3 transition test</title>
+        <style type="text/css">
+         #mouseover-box {
+             position: absolute;
+             left: 10%;
+             width: 30%;
+             height: 20%;
+
+             color: black;
+             background-color: #7ea;
+             border: 1px solid black;
+
+             font-size: larger;
+             text-align: center;
+
+             transition: all 0.5s ease-in;
+         }
+
+         #mouseover-box p.hidden {
+             opacity: 0.0;
+             transition: opacity 0.5s ease-out;
+         }
+
+         #mouseover-box p {
+             padding-top: auto;
+             padding-bottom: auto;
+         }
+
+         #mouseover-box:hover {
+             left: 15%;
+             height: 50%;
+             width: 40%;
+             background-color: #84a;
+             color: white;
+             text-shadow: 0px 0px 1px black;
+             font-size: xx-large;
+             border: 3px solid orange;
+         }
+
+         #mouseover-box:hover p.hidden {
+             opacity: 1.0;
+         }
+        </style>
+    </head>
+    <body>
+        <div id="mouseover-box">
+            <p>Move the mouse over me.</p>
+            <p class="hidden">This message was hidden.</p>
+        </div>
+    </body>
+</html>
