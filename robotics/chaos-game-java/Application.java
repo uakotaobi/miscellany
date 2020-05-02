@@ -58,6 +58,8 @@ public class Application {
         pixels.set(offset, color);
     }
 
+    /// Writes an ASCII Portable Pixmap (PPM) file containing the image
+    /// data in the pixels array.
     private static void createImage(String filename) {
 
         try (FileWriter writer = new FileWriter(filename)) {
@@ -90,6 +92,8 @@ public class Application {
         Point current = new Point(initial.x, initial.y);
 
         for (int i = 0; i < iterations; ++i) {
+            // Determine the current color based on weight averages of the
+            // vertex colors.
             double[] weights = computeBarycentricCoordinates(seeds.get(0),
                                                              seeds.get(1),
                                                              seeds.get(2),
@@ -98,7 +102,7 @@ public class Application {
                                        weights[0] * colors.get(0).g() + weights[1] * colors.get(1).g() + weights[2] * colors.get(2).g(),
                                        weights[0] * colors.get(0).b() + weights[1] * colors.get(1).b() + weights[2] * colors.get(2).b());
 
-            // Set the current point.
+            // Draw the current point.
             if (current.x >= 0 && current.x < width && current.y >= 0 && current.y < height) {
                 setPixel((int)current.x, (int)current.y, currentColor);
             }
@@ -117,11 +121,13 @@ public class Application {
     // way that people use (u, v) pairs to form a coordinate system over
     // parametric surfaces.
     //
-    // - For a given N-simplex, there are N components in the barycentric
-    //   coordinate.
-    // - These components always add to 1.0.
-    // - If you set one of the components to 1.0 and the others to 0, by
-    //   definition, you are exactly on the Nth point of the simplex.
+    // - For a given N-simplex (lines, triangles, tetrahedra, 5-cells, and so
+    //   on), there are N + 1 weights in the barycentric coordinate.
+    // - These weights always add to 1.0.
+    // - By definition, if only one of the weights is nonzero, then the
+    //   barycentric coordinate lies on a vertex of the N-simplex.
+    // - By definition, if only two of the weights are nonzero, then the
+    //   barycentric coordinate lies along an edge of the N-simplex.
     //
     // By using these coordinates as weighted averages over a set of colors,
     // we ensure an even interpolation of those colors across the simplex.
@@ -134,9 +140,9 @@ public class Application {
     // Let's be frank: I stole this formula whole-hog from
     // https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates.
     static double[] computeBarycentricCoordinates(Point a, Point b, Point c, Point p) {
-        double denominator = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
-        double l1 = ((b.y - c.y) * (p.x - c.x) + (c.x - b.x) * (p.y - c.y)) / denominator;
-        double l2 = ((c.y - a.y) * (p.x - c.x) + (a.x - c.x) * (p.y - c.y)) / denominator;
+        double determinant = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+        double l1 = ((b.y - c.y) * (p.x - c.x) + (c.x - b.x) * (p.y - c.y)) / determinant;
+        double l2 = ((c.y - a.y) * (p.x - c.x) + (a.x - c.x) * (p.y - c.y)) / determinant;
         double l3 = 1 - l1 - l2;
         return new double[] { l1, l2, l3 };
     }
