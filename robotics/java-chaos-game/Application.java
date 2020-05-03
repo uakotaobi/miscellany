@@ -98,6 +98,7 @@ public class Application {
                                                              seeds.get(1),
                                                              seeds.get(2),
                                                              current);
+
             RGB currentColor = new RGB(weights[0] * colors.get(0).r() + weights[1] * colors.get(1).r() + weights[2] * colors.get(2).r(),
                                        weights[0] * colors.get(0).g() + weights[1] * colors.get(1).g() + weights[2] * colors.get(2).g(),
                                        weights[0] * colors.get(0).b() + weights[1] * colors.get(1).b() + weights[2] * colors.get(2).b());
