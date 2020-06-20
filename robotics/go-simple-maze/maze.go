@@ -407,18 +407,17 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		unitRow := 2 * rand.Intn(unitHeight / 2 + 1)
 		unitColumn := 2 * rand.Intn(unitWidth / 2 + 1)
 
-		const minLengthInUnits = 3
-		var vx, vy, maxLengthInUnits int
+		var vx, vy int
 
 		switch randomDirection := mask(1 << uint(rand.Intn(4))); randomDirection {
 		case left:
-			vx, vy, maxLengthInUnits = -1, 0, unitColumn
+			vx, vy = -1, 0
 		case up:
-			vx, vy, maxLengthInUnits = 0, -1, unitRow
+			vx, vy = 0, -1
 		case right:
-			vx, vy, maxLengthInUnits = 1, 0, unitWidth - unitColumn
+			vx, vy = 1, 0
 		case down:
-			vx, vy, maxLengthInUnits = 0, 1, unitHeight - unitRow
+			vx, vy = 0, 1
 		}
 
 		x, y, width, height := unitCoordinatesToRect(unitColumn, unitRow)
@@ -463,7 +462,7 @@ func (m *Maze) generateMaze(existingCells []rune) {
 				break
 			}
 		}
-		if potentialWallLength < minLengthInUnits {
+		if potentialWallLength < 3 {
 			// Can't draw a wall in this direction from this
 			// position.
 			continue
@@ -471,15 +470,45 @@ func (m *Maze) generateMaze(existingCells []rune) {
 
 		// Now that we know how long a wall we can draw, we choose the
 		// length at random.
-		// (min and max wall lengths should be integers, not
-		// floating-point scaling factors.)
-		fmt.Printf("I was able to draw a wall from (%v, %v) to (%v, %v) -- %v units long\n",
+		//
+		// Note that the actual wall length will always be between 3
+		// and potentialWallLength, regardless of what minWallLength and
+		// maxWallLength are set to.  They are _guidelines_, not rigid
+		// constraints.
+		var (
+			minWallLength int = 7
+			maxWallLength int = 13
+		)
+		if maxWallLength < minWallLength {
+			minWallLength, maxWallLength = maxWallLength, minWallLength // minWallLength <= maxWallLength
+		}
+		minWallLength += (minWallLength + 1) % 2                        // Round even minimum lengths up to the next highest odd number
+		maxWallLength -= (maxWallLength + 1) % 2                        // Round even maximum lengths down to the next lowest odd number
+		minWallLength = min(potentialWallLength, max(3, minWallLength)) // 3 <= minWallLength <= potentialWallLength
+		maxWallLength = min(potentialWallLength, max(3, maxWallLength)) // 3 <= maxWallLength <= potentialWallLength
+
+		// This produces a random odd number between minWallLength and maxWallLength.
+		wallLength := minWallLength + 2 * rand.Intn((maxWallLength - minWallLength) / 2 + 1)
+
+		fmt.Printf("I was able to draw a wall from (%v, %v) to (%v, %v) -- %v units long.  Actually chose %v units (%v <= %v <= %v).\n",
 			unitColumn, unitRow,
 			unitColumn + vx * (potentialWallLength - 1), unitRow + vy * (potentialWallLength - 1),
-			potentialWallLength)
+			potentialWallLength,
+			wallLength,
+			minWallLength, wallLength, maxWallLength)
 
-		_, _, _ = vx, vy, maxLengthInUnits
-		break
+		// Draw the wall.
+		currentUnitRow, currentUnitColumn = unitRow, unitColumn
+		for i := 0; i < wallLength; i++ {
+			x, y, width, height := unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
+			m.drawRect(x, y, width, height, m.fill)
+			currentUnitColumn += vx
+			currentUnitRow += vy
+		}
+
+		// We know how many empty (odd-numbered) cells we just drew over.
+		numberOfUnoccupiedUnits -= (wallLength - 1)/2
+		// break
 
 	} // end (while the maze is not full)
 	fmt.Printf("Number of misses: %v\n", misses)
@@ -542,11 +571,11 @@ func (m *Maze) Print() {
 
 func main() {
 
-	m := NewMaze(60, 20)
+	m := NewMaze(160, 60)
 	m.drawRect(0, 0, m.width, m.height, m.floor)
-	m.thickness = 4
+	m.thickness = 5
 
-	rand.Seed(1234567)
+	rand.Seed(12345678)
 	m.Generate()
 	// foo := [][]int { {59, 10}, {5, 19} }
 	// for _, value := range foo {
