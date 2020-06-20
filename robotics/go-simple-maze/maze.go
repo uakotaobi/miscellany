@@ -2,6 +2,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 type Maze struct {
@@ -361,19 +362,15 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	// This 2D data structure -- a slice of slices -- contains a boolean
 	// for each of the odd unit of the maze (where a "unit" can take up
 	// more than one character cell if m.thickness > 1.)
-	occupiedUnits := [][]bool{}
 	numberOfUnoccupiedUnits := 0
 	for unitRow := 0; unitRow < unitHeight; unitRow += 2 {
-		occupiedUnitsCurrentRow := []bool{}
 		for unitColumn := 0; unitColumn < unitWidth; unitColumn += 2 {
 			x, y, _, _ := unitCoordinatesToRect(unitColumn, unitRow)
 			unitUnoccupied := m.rectContains(x, y, m.thickness, m.thickness, m.floor)
-			occupiedUnitsCurrentRow = append(occupiedUnitsCurrentRow, unitUnoccupied)
 			if unitUnoccupied {
 				numberOfUnoccupiedUnits += 1
 			}
 		}
-		occupiedUnits = append(occupiedUnits, occupiedUnitsCurrentRow)
 	}
 
 	// Another helper routine.
@@ -476,8 +473,8 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		// maxWallLength are set to.  They are _guidelines_, not rigid
 		// constraints.
 		var (
-			minWallLength int = 7
-			maxWallLength int = 13
+			minWallLength int = 50
+			maxWallLength int = 100
 		)
 		if maxWallLength < minWallLength {
 			minWallLength, maxWallLength = maxWallLength, minWallLength // minWallLength <= maxWallLength
@@ -575,7 +572,9 @@ func main() {
 	m.drawRect(0, 0, m.width, m.height, m.floor)
 	m.thickness = 5
 
-	rand.Seed(12345678)
+	// rand.Seed(12345678)
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	m.Generate()
 	// foo := [][]int { {59, 10}, {5, 19} }
 	// for _, value := range foo {
