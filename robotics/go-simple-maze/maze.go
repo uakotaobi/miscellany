@@ -279,17 +279,66 @@ func (m *Maze) rectContains(x, y, width, height int, cell rune) bool {
 	return true
 }
 
+// Returns true if the given rectangle represents a passageway: its center (if
+// it has one) solely consists of floor runes, and walls do not hem the
+// center in on all four sides.
+func (m *Maze) rectIsPassage(x, y, width, height int) bool {
+	if !m.validRect(x, y, width, height) {
+		return false
+	}
+	x, y, width, height = m.clipRect(x, y, width, height)
+
+	wallOpening := false
+	for row := y; row < y + height; row++ {
+		for column := x; column < x + width; column++ {
+			c := m.cells[m.offset(column, row)]
+
+			if column > x && column < x + width - 1 && row > y && row < y + height - 1 {
+				// Interior cell.
+				if c != m.floor {
+					return false
+				}
+			} else {
+				// Border cell.
+				if c == m.floor {
+					wallOpening = true
+				}
+			}
+		}
+	}
+	return wallOpening
+}
+
+// Helpful conversion routines.
+//
+// Converts a "unit coordinate" (a subdivision of the maze grid into
+// slightly-overlapping boxes) into a square.
+func (m *Maze) unitCoordinatesToRect(unitColumn, unitRow int) (x, y, width, height int) {
+	switch m.thickness {
+	case 1:
+		return unitColumn, unitRow, 1, 1
+	// This looks good, but we need to special-case unitWidth and
+	// unitHeight for it to work.
+	// case 2:
+	//	return unitColumn*2, unitRow*2, 2, 2
+	default:
+		x = unitColumn * (m.thickness - 1)
+		y = unitRow * (m.thickness - 1)
+		return x, y, m.thickness, m.thickness
+	}
+}
+
 // Helper function for generateMaze().
 //
 // Let us define a unit rectangle as part of a maze's "outer corridor" if it
-// is both completely empty and it borders a unit rectangle on the edge of the
-// maze.  This function's purpose is to find the coordinates of the two outer
-// corridor units that are furthest apart in a maze walk.  These in turn will
-// then be used to cut the entrance and exit for the maze.
+// is both completely empty and it borders a (wall-filled) unit rectangle on
+// the edge of the maze.  This function's purpose is to find the coordinates
+// of the two outer corridor unit rectangles that are furthest apart in a maze
+// walk.  These will then be used to cut the entrance and exit for the maze.
 //
 // A single flood fill from any starting point will eventually find all the
 // points that are furthest away from it.  This algorithm repeats that flood
-// fill once for HALF of the outer corridor unit rectangles in the maze )since
+// fill once for HALF of the outer corridor unit rectangles in the maze (since
 // the other half will produce identical results.)  This is obviously a brute
 // force algorithm, and it is most likely highly inefficient.
 //
@@ -341,19 +390,6 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		unitHeight--
 	}
 
-	// Helpful conversion routines.
-	//
-	// Converts a "unit coordinate" (a subdivision of the maze grid into
-	// slightly-overlapping boxes) into a rectangle.
-	unitCoordinatesToRect := func(unitColumn, unitRow int) (x, y, width, height int) {
-		if m.thickness == 1 {
-			return unitColumn, unitRow, 1, 1
-		}
-		x = unitColumn * (m.thickness - 1)
-		y = unitRow * (m.thickness - 1)
-		return x, y, m.thickness, m.thickness
-	}
-
 	// Draw a ring of walls around the maze.
 	if m.thickness == 1 {
 		// For a thickness of 1, this looks better than a bunch of
@@ -366,16 +402,16 @@ func (m *Maze) generateMaze(existingCells []rune) {
 			switch {
 			case i < unitWidth:
 				// Top edge.
-				x, y, _, _ = unitCoordinatesToRect(i, 0)
+				x, y, _, _ = m.unitCoordinatesToRect(i, 0)
 			case i >= unitWidth && i < unitWidth + unitHeight:
 				// Right edge.
-				x, y, _, _ = unitCoordinatesToRect(unitWidth - 1, i - unitWidth)
+				x, y, _, _ = m.unitCoordinatesToRect(unitWidth - 1, i - unitWidth)
 			case i >= unitWidth + unitHeight && i < (2 * unitWidth + unitHeight):
 				// Bottom edge (moving left.)
-				x, y, _, _ = unitCoordinatesToRect(unitWidth - (i - unitWidth - unitHeight) - 1, unitHeight - 1)
+				x, y, _, _ = m.unitCoordinatesToRect(unitWidth - (i - unitWidth - unitHeight) - 1, unitHeight - 1)
 			default:
 				// Left edge (moving up.)
-				x, y, _, _ = unitCoordinatesToRect(0, unitHeight - (i - (2 * unitWidth) - unitHeight) - 1)
+				x, y, _, _ = m.unitCoordinatesToRect(0, unitHeight - (i - (2 * unitWidth) - unitHeight) - 1)
 			}
 
 			m.drawRect(x, y, m.thickness, m.thickness, m.fill)
@@ -426,23 +462,30 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	//
 	//    1 2 3 4 5 6 7 8 9 10111213141516
 	//  1 * * * * .   * * * * * * * * * *
-	//  2 * * * * .   * * * * * * * * * *
+	//  2 * * * *     * * * * * * * * * *
 	//  3 * * * * .   * * * * * * * * * *
-	//  4 * * * * .   * * * * * * * * * *
+	//  4 * * * *     * * * * * * * * * *
 	//  5 * * * * .   .   .   .   * * * *
-	//  6 * * * * .   .   .   .   * * * *
+	//  6 * * * *                 * * * *
 	//  7 * * * * * * * * * * .   * * * *
-	//  8 * * * * * * * * * * .   * * * *
+	//  8 * * * * * * * * * *     * * * *
 	//  9 * * * * * * * * * * .   * * * *
-	// 10 * * * * * * * * * * .   * * * *
+	// 10 * * * * * * * * * *     * * * *
 	//
-	// Since only odd coordinates are considered, there are 6 + 2 + 2 + 6
-	// = 16 available spaces
+	// Since only odd coordinates are considered, there are 3 + 2 + 3 = 8
+	// available spaces.
+	//
+	// But drawing a line from (say) (7, 11) to (5, 11) would seal off the
+	// northwest corridor and instantly ruin the maze.  As it turns out,
+	// any unit cell without at least three liberties -- three places to
+	// draw walls to -- is unusable by the maze algorithm.  All eight of the
+	// available cells in this maze have either two liberties or one, so
+	// this maze is actually complete with 0 available spaces.
 
 	numberOfUnoccupiedUnits := 0
 	for unitRow := 0; unitRow < unitHeight; unitRow += 2 {
 		for unitColumn := 0; unitColumn < unitWidth; unitColumn += 2 {
-			x, y, _, _ := unitCoordinatesToRect(unitColumn, unitRow)
+			x, y, _, _ := m.unitCoordinatesToRect(unitColumn, unitRow)
 			unitUnoccupied := m.rectContains(x, y, m.thickness, m.thickness, m.floor)
 			if unitUnoccupied {
 				numberOfUnoccupiedUnits += 1
@@ -458,7 +501,7 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	printOccupiedUnitsDebug := func() {
 		for unitRow := 0; unitRow < unitHeight; unitRow += 2 {
 			for unitColumn := 0; unitColumn < unitWidth; unitColumn += 2 {
-				x, y, _, _ := unitCoordinatesToRect(unitColumn, unitRow)
+				x, y, _, _ := m.unitCoordinatesToRect(unitColumn, unitRow)
 				unitUnoccupied := m.rectContains(x, y, m.thickness, m.thickness, m.floor)
 				fmt.Printf("%5v ", unitUnoccupied)
 			}
@@ -494,7 +537,7 @@ func (m *Maze) generateMaze(existingCells []rune) {
 			vx, vy = 0, 1
 		}
 
-		x, y, width, height := unitCoordinatesToRect(unitColumn, unitRow)
+		x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
 		if m.rectContains(x, y, width, height, m.floor) {
 			// The randomly-selected unit was not occupied, so we
 			// can't make a wall here.  Try again!
@@ -513,7 +556,7 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		potentialWallLength := -1
 		currentUnitRow, currentUnitColumn := unitRow, unitColumn
 		for {
-			x, y, width, height := unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
+			x, y, width, height := m.unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
 			if potentialWallLength == -1 || m.rectContains(x, y, width, height, m.floor) {
 				// This spot's clear.  (Or we're in our
 				// starting position, which is always valid.)
@@ -576,7 +619,7 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		// Draw the wall.
 		currentUnitRow, currentUnitColumn = unitRow, unitColumn
 		if m.thickness == 1 {
-			x1, y1, _, _ := unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
+			x1, y1, _, _ := m.unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
 			x2, y2 := x1 + vx * (wallLength - 1), y1 + vy * (wallLength - 1)
 
 			// Force (x1, y1) to be the upper left corner of the rectangle.
@@ -585,7 +628,7 @@ func (m *Maze) generateMaze(existingCells []rune) {
 			m.drawRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, m.fill)
 		} else {
 			for i := 0; i < wallLength; i++ {
-				x, y, width, height := unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
+				x, y, width, height := m.unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
 				m.drawRect(x, y, width, height, m.fill)
 				currentUnitColumn += vx
 				currentUnitRow += vy
