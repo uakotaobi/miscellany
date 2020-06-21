@@ -54,6 +54,13 @@ func min(a, b int) int {
 	return b
 }
 
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
 // Alters the maze's dimensions.  The maze will need re-rendering after the
 // call.
 func (m *Maze) setSize(newWidth, newHeight int) {
@@ -425,6 +432,8 @@ func (m *Maze) generateMaze(existingCells []rune) {
 			continue
 		}
 
+		// STEP 3
+		//
 		// Will we be able to plop down at least three units (counting
 		// the starting position)?
 		//
@@ -466,7 +475,7 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		}
 
 		// Now that we know how long a wall we can draw, we choose the
-		// length at random.
+		// actual length at random.
 		//
 		// Note that the actual wall length will always be between 3
 		// and potentialWallLength, regardless of what minWallLength and
@@ -496,18 +505,30 @@ func (m *Maze) generateMaze(existingCells []rune) {
 
 		// Draw the wall.
 		currentUnitRow, currentUnitColumn = unitRow, unitColumn
-		for i := 0; i < wallLength; i++ {
-			x, y, width, height := unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
-			m.drawRect(x, y, width, height, m.fill)
-			currentUnitColumn += vx
-			currentUnitRow += vy
+		if m.thickness == 1 {
+			x1, y1, _, _ := unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
+			x2, y2 := x1 + vx * (wallLength - 1), y1 + vy * (wallLength - 1)
+
+			// Force (x1, y1) to be the upper left corner of the rectangle.
+			x1, y1, x2, y2 = min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+
+			m.drawRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, m.fill)
+		} else {
+			for i := 0; i < wallLength; i++ {
+				x, y, width, height := unitCoordinatesToRect(currentUnitColumn, currentUnitRow)
+				m.drawRect(x, y, width, height, m.fill)
+				currentUnitColumn += vx
+				currentUnitRow += vy
+			}
 		}
 
+		// STEP 4
+		//
 		// We know how many empty (odd-numbered) cells we just drew over.
 		numberOfUnoccupiedUnits -= (wallLength - 1)/2
-		// break
 
-	} // end (while the maze is not full)
+	} // end (while the maze is not full) [STEP 5]
+
 	fmt.Printf("Number of misses: %v\n", misses)
 }
 
@@ -571,6 +592,7 @@ func main() {
 	m := NewMaze(160, 60)
 	m.drawRect(0, 0, m.width, m.height, m.floor)
 	m.thickness = 5
+	m = NewMaze(35, 35); m.thickness = 1
 
 	// rand.Seed(12345678)
 	rand.Seed(time.Now().UTC().UnixNano())
