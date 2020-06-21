@@ -352,13 +352,187 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 
 	// A data structure that records which points we have and have not
 	// visited during recursion.
-	visited := map[Point]bool{}
-	findFurthestEdgeRecursive := func(unitColumn, unitRow int) []Point {
-
-		candidates := []Point{}
-		return candidates
+	type VisitedMap struct {
+		visitedUnits map[Point]bool
+		furthestPoints []Point
+		longestDistance int
 	}
-	_, _ = visited, findFurthestEdgeRecursive
+
+	// Returns a list of edge points that are the furthest distance away
+	// (each will have the same distance value.)
+	//
+	// Arguments:
+	// - unitColumn:        The X-coordinate of the current unit rectangle.
+	// - unitRow:           The Y-coordinate of the current unit rectangle.
+	// - currentDistance:	The Manhattan distance, in unit coordinates,
+	//			from our originating point when the recursion
+	//			started.
+	// - bestDistanceSoFar: The greatest currentDistance value returned by
+	//                      our children during recursive flood-filling.
+	// - VisitedMap:        An associative array mapping unit rectangle
+	//                      coordinates to booleans.  It is true for all
+	//                      points visited so far during maze recursion,
+	//                      and false for all other points.
+	//
+	// Returns:
+	// - furthest:          A slice of unit positions that have the
+	//                      furthest distance from the position when
+	//                      recursion started.
+	// - bestDistance:      The value of that furthest distance.
+	var findFurthestOuterCorridorPositionRecursive func(unitColumn, unitRow, currentDistance int, visitedMap *VisitedMap)
+	findFurthestOuterCorridorPositionRecursive = func(unitColumn, unitRow, currentDistance int, visitedMap *VisitedMap) {
+
+		visitedMap.visitedUnits[Point{x: unitColumn, y: unitRow}] = true
+
+		// Test all four neighbors in turn.
+		for i := 0; i < 4; i++ {
+			var dx, dy int
+			switch mask(1 << uint(i)) {
+			case left:
+				dx, dy = -1, 0
+			case up:
+				dx, dy = 0, -1
+			case right:
+				dx, dy = 1, 0
+			case down:
+				dx, dy = 0, 1
+			}
+
+			neighbor := Point{x: unitColumn + dx, y: unitRow + dy}
+			if neighbor.x < 1 || neighbor.x > unitWidth - 2 || neighbor.y < 1 || neighbor.y > unitHeight - 2 {
+				// Neighbor position just hit a border
+				// wall: out of bounds.
+				// fmt.Printf("  %v, %v: Neighbor %v is out of bounds.\n", unitColumn, unitRow, neighbor)
+				continue
+			}
+
+			if visitedMap.visitedUnits[neighbor] {
+				// Neighbor position was already
+				// visited via recursion.
+				// fmt.Printf("  %v, %v: Neighbor %v is visited.\n", unitColumn, unitRow, neighbor)
+				continue
+			}
+
+			// We have an unvisited neighboring unit cell.
+			x, y, width, height := m.unitCoordinatesToRect(neighbor.x, neighbor.y)
+			if !m.rectIsPassage(x, y, width, height) {
+				// The neighboring cell was occupied.
+				// fmt.Printf("  %v, %v: Neighbor %v is occupied.\n", unitColumn, unitRow, neighbor)
+				continue
+			}
+
+			// We have an empty, unvisited neighboring
+			// unit cell.  Flood recursively.
+			// fmt.Printf("  Visiting neighbor %v.\n", neighbor)
+			findFurthestOuterCorridorPositionRecursive(unitColumn + dx,
+				unitRow + dy,
+				currentDistance + 1,
+				visitedMap)
+
+		} // end (for each orthogonally neighboring unit rectangle position)
+
+		// If control makes it here, all neighbors are
+		// visited (or occupied.)
+		//
+		// Add this point only if it qualifies.
+
+		if (unitColumn != 1 && unitColumn != unitWidth - 2) || (unitRow != 1 && unitRow != unitHeight - 2) {
+			// Not an outer corridor unit.
+			return
+		}
+
+		if currentDistance > visitedMap.longestDistance {
+			visitedMap.furthestPoints = []Point{Point{x: unitColumn, y: unitRow}}
+			visitedMap.longestDistance = currentDistance
+			// fmt.Printf("  %v, %v: Best distance so far is %v: %v\n", unitColumn, unitRow, visitedMap.longestDistance, visitedMap.furthestPoints)
+		} else if currentDistance == visitedMap.longestDistance {
+			visitedMap.furthestPoints = append(visitedMap.furthestPoints, Point{x: unitColumn, y: unitRow})
+		}
+
+		// fmt.Printf("%v, %v: distance = %v, best distance = %v\n", unitColumn, unitRow, currentDistance, visitedMap.longestDistance)
+
+	}
+
+	// The top and right outer corridors suffice for testing the
+	// entire thing.
+	longestDistance := 0
+	finalCandidates := []Point{}
+	for i := 0; i < (unitWidth - 2) + (unitHeight - 2) - 1; i++ {
+		var unitColumn, unitRow int
+
+		if i < unitWidth - 2 {
+			// Topmost corridor (including upper-right corner.)
+			unitColumn, unitRow = i + 1, 1
+		} else {
+			// Rightmost corridor.
+			unitColumn, unitRow = unitWidth - 2, i - (unitWidth - 2) + 2
+		}
+
+		x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
+		if !m.rectIsPassage(x, y, width, height) {
+			// Can't start entrances behind a wall.
+			continue
+		}
+
+		visited := VisitedMap{visitedUnits: map[Point]bool{}, furthestPoints: []Point{}}
+		findFurthestOuterCorridorPositionRecursive(unitColumn, unitRow, 0, &visited)
+
+		fmt.Printf("i == %v: For the starting point %v, %v, the best candidates, with distance %v, are: %v\n",
+			i, unitColumn, unitRow, visited.longestDistance, visited.furthestPoints)
+		// Is this the best we've seen so far?
+		if visited.longestDistance > longestDistance {
+			entranceUnitColumn = unitColumn
+			entranceUnitRow = unitRow
+			longestDistance = visited.longestDistance
+			finalCandidates = visited.furthestPoints
+		}
+	}
+
+	exitUnitColumn, exitUnitRow = finalCandidates[0].x, finalCandidates[0].y
+	points := []Point{
+		Point{x: entranceUnitColumn, y:entranceUnitRow},
+		Point{x: exitUnitColumn, y: exitUnitRow},
+	}
+
+	for _, p := range(points) {
+		var horizontal bool
+
+		// The entrance and exit actually need to be on the outer walls, not
+		// the outer corridors.
+		switch {
+		case p.x == 1:              // On left edge of maze.
+			p.x--
+			horizontal = false
+		case p.x == unitWidth - 2:  // On right edge of maze.
+			p.x++
+			horizontal = false
+		case p.y == 1:              // On top edge of maze.
+			p.y--
+			horizontal = true
+		case p.y == unitHeight - 2: // On bottom edge of maze.
+			p.y++
+			horizontal = true
+		}
+
+		// Knock out the entrance/exit itself.
+		if m.thickness == 1 {
+			m.cells[m.offset(p.x, p.y)] = m.floor
+		} else {
+			x, y, width, height := m.unitCoordinatesToRect(p.x, p.y)
+
+			if horizontal {
+				x, width = x + 1, width - 2
+			} else {
+				y, height = y + 1, height - 2
+			}
+
+			for row := y; row < y + height; row++ {
+				for column := x; column < x + width; column++ {
+					m.cells[m.offset(column, row)] = m.floor
+				}
+			}
+		}
+	}
 
 	return entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow
 }
@@ -643,6 +817,8 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	} // end (while the maze is not full) [STEP 5]
 
 	fmt.Printf("Number of misses: %v\n", misses)
+
+	m.findEntranceAndExit(unitWidth, unitHeight)
 }
 
 // Draws a new maze.
@@ -705,7 +881,7 @@ func main() {
 	m := NewMaze(160, 60)
 	m.drawRect(0, 0, m.width, m.height, m.floor)
 	m.thickness = 5
-	m = NewMaze(75, 21); m.thickness = 5
+	m = NewMaze(75, 35); m.thickness = 1
 
 	// rand.Seed(12345678)
 	rand.Seed(time.Now().UTC().UnixNano())
