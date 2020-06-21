@@ -279,6 +279,42 @@ func (m *Maze) rectContains(x, y, width, height int, cell rune) bool {
 	return true
 }
 
+// Helper function for generateMaze().
+//
+// Let us define a unit rectangle as part of a maze's "outer corridor" if it
+// is both completely empty and it borders a unit rectangle on the edge of the
+// maze.  This function's purpose is to find the coordinates of the two outer
+// corridor units that are furthest apart in a maze walk.  These in turn will
+// then be used to cut the entrance and exit for the maze.
+//
+// A single flood fill from any starting point will eventually find all the
+// points that are furthest away from it.  This algorithm repeats that flood
+// fill once for HALF of the outer corridor unit rectangles in the maze )since
+// the other half will produce identical results.)  This is obviously a brute
+// force algorithm, and it is most likely highly inefficient.
+//
+// Returns the unit coordinates of the entrance and exit, such that you can simply
+// punch holes in those positions to complete the maze.
+func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow int) {
+
+	type Point struct {
+		x, y int
+	}
+
+	// A data structure that records which points we have and have not
+	// visited during recursion.
+	visited := map[Point]bool{}
+	findFurthestEdgeRecursive := func(unitColumn, unitRow int) []Point {
+
+		candidates := []Point{}
+		return candidates
+	}
+	_, _ = visited, findFurthestEdgeRecursive
+
+	return entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow
+}
+
+
 // Generates a maze by drawing it on top of the given set of cells.  Only the
 // blank cells (with a value equal to m.floor) will be overwritten.
 //
@@ -366,9 +402,43 @@ func (m *Maze) generateMaze(existingCells []rune) {
 
 	// STEP 1
 	//
-	// This 2D data structure -- a slice of slices -- contains a boolean
-	// for each of the odd unit of the maze (where a "unit" can take up
-	// more than one character cell if m.thickness > 1.)
+	// Count the number of odd coordinates in the map that are completely
+	// unoccupied.  Those are our targets -- where we wish to draw the
+	// maze.
+	//
+	// Suppose our thickness is 1 and we have an existing cells buffer
+	// that looks like this (clearly the result of this maze renderer's
+	// previous handiwork):
+	//
+	// +--+  +--+--+--+
+	// |..|  |..|..|..|
+	// |..|  |..|..|..|
+	// +--+  +--+--+--+
+	// |..|        |..|
+	// |..|        |..|
+	// +--+--+--+  +--+
+	// |..|..|..|  |..|
+	// |..|..|..|  |..|
+	// +--+--+--+  +--+
+	//
+	// From the perspective of the present rendering algorithm, here is
+	// the coordinate analysis:
+	//
+	//    1 2 3 4 5 6 7 8 9 10111213141516
+	//  1 * * * * .   * * * * * * * * * *
+	//  2 * * * * .   * * * * * * * * * *
+	//  3 * * * * .   * * * * * * * * * *
+	//  4 * * * * .   * * * * * * * * * *
+	//  5 * * * * .   .   .   .   * * * *
+	//  6 * * * * .   .   .   .   * * * *
+	//  7 * * * * * * * * * * .   * * * *
+	//  8 * * * * * * * * * * .   * * * *
+	//  9 * * * * * * * * * * .   * * * *
+	// 10 * * * * * * * * * * .   * * * *
+	//
+	// Since only odd coordinates are considered, there are 6 + 2 + 2 + 6
+	// = 16 available spaces
+
 	numberOfUnoccupiedUnits := 0
 	for unitRow := 0; unitRow < unitHeight; unitRow += 2 {
 		for unitColumn := 0; unitColumn < unitWidth; unitColumn += 2 {
@@ -592,7 +662,7 @@ func main() {
 	m := NewMaze(160, 60)
 	m.drawRect(0, 0, m.width, m.height, m.floor)
 	m.thickness = 5
-	m = NewMaze(35, 35); m.thickness = 1
+	m = NewMaze(75, 21); m.thickness = 5
 
 	// rand.Seed(12345678)
 	rand.Seed(time.Now().UTC().UnixNano())
