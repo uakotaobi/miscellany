@@ -344,7 +344,7 @@ func (m *Maze) unitCoordinatesToRect(unitColumn, unitRow int) (x, y, width, heig
 //
 // Returns the unit coordinates of the entrance and exit, such that you can simply
 // punch holes in those positions to complete the maze.
-func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow int) {
+func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow, solutionLength int) {
 
 	type Point struct {
 		x, y int
@@ -402,14 +402,12 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 			if neighbor.x < 1 || neighbor.x > unitWidth - 2 || neighbor.y < 1 || neighbor.y > unitHeight - 2 {
 				// Neighbor position just hit a border
 				// wall: out of bounds.
-				// fmt.Printf("  %v, %v: Neighbor %v is out of bounds.\n", unitColumn, unitRow, neighbor)
 				continue
 			}
 
 			if visitedMap.visitedUnits[neighbor] {
 				// Neighbor position was already
 				// visited via recursion.
-				// fmt.Printf("  %v, %v: Neighbor %v is visited.\n", unitColumn, unitRow, neighbor)
 				continue
 			}
 
@@ -417,13 +415,11 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 			x, y, width, height := m.unitCoordinatesToRect(neighbor.x, neighbor.y)
 			if !m.rectIsPassage(x, y, width, height) {
 				// The neighboring cell was occupied.
-				// fmt.Printf("  %v, %v: Neighbor %v is occupied.\n", unitColumn, unitRow, neighbor)
 				continue
 			}
 
 			// We have an empty, unvisited neighboring
 			// unit cell.  Flood recursively.
-			// fmt.Printf("  Visiting neighbor %v.\n", neighbor)
 			findFurthestOuterCorridorPositionRecursive(unitColumn + dx,
 				unitRow + dy,
 				currentDistance + 1,
@@ -444,13 +440,9 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		if currentDistance > visitedMap.longestDistance {
 			visitedMap.furthestPoints = []Point{Point{x: unitColumn, y: unitRow}}
 			visitedMap.longestDistance = currentDistance
-			// fmt.Printf("  %v, %v: Best distance so far is %v: %v\n", unitColumn, unitRow, visitedMap.longestDistance, visitedMap.furthestPoints)
 		} else if currentDistance == visitedMap.longestDistance {
 			visitedMap.furthestPoints = append(visitedMap.furthestPoints, Point{x: unitColumn, y: unitRow})
 		}
-
-		// fmt.Printf("%v, %v: distance = %v, best distance = %v\n", unitColumn, unitRow, currentDistance, visitedMap.longestDistance)
-
 	}
 
 	// The top and right outer corridors suffice for testing the
@@ -477,14 +469,16 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		visited := VisitedMap{visitedUnits: map[Point]bool{}, furthestPoints: []Point{}}
 		findFurthestOuterCorridorPositionRecursive(unitColumn, unitRow, 0, &visited)
 
-		fmt.Printf("i == %v: For the starting point %v, %v, the best candidates, with distance %v, are: %v\n",
-			i, unitColumn, unitRow, visited.longestDistance, visited.furthestPoints)
 		// Is this the best we've seen so far?
 		if visited.longestDistance > longestDistance {
 			entranceUnitColumn = unitColumn
 			entranceUnitRow = unitRow
 			longestDistance = visited.longestDistance
 			finalCandidates = visited.furthestPoints
+			// fmt.Printf("Distance from entrance (%v) to exit (%v): %v\n",
+			//	Point{x: entranceUnitColumn, y: entranceUnitRow},
+			//	finalCandidates,
+			//	longestDistance)
 		}
 	}
 
@@ -534,7 +528,7 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		}
 	}
 
-	return entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow
+	return entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow, longestDistance + 2
 }
 
 
@@ -816,9 +810,8 @@ func (m *Maze) generateMaze(existingCells []rune) {
 
 	} // end (while the maze is not full) [STEP 5]
 
-	fmt.Printf("Number of misses: %v\n", misses)
-
-	m.findEntranceAndExit(unitWidth, unitHeight)
+	_, _, _, _, solutionDistance := m.findEntranceAndExit(unitWidth, unitHeight)
+	fmt.Printf("Maze solution distance: %v.  Number of misses: %v\n", solutionDistance, misses)
 }
 
 // Draws a new maze.
@@ -881,21 +874,11 @@ func main() {
 	m := NewMaze(160, 60)
 	m.drawRect(0, 0, m.width, m.height, m.floor)
 	m.thickness = 5
-	m = NewMaze(75, 35); m.thickness = 1
+	m = NewMaze(105, 55); m.thickness = 6;
 
 	// rand.Seed(12345678)
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	m.Generate()
-	// foo := [][]int { {59, 10}, {5, 19} }
-	// for _, value := range foo {
-	//	x, y := value[0], value[1]
-	//	m.Set(x, y, 'X')
-	//	l := m.hasNeighbor(x, y, left, m.floor)
-	//	r := m.hasNeighbor(x, y, right, m.floor)
-	//	u := m.hasNeighbor(x, y, up, m.floor)
-	//	d := m.hasNeighbor(x, y, down, m.floor)
-	//	fmt.Printf("has blank neighbor: (%v, %v): left=%v up=%v right=%v down=%v\n", x, y, l, u, r, d)
-	// }
 	m.Print()
 }
