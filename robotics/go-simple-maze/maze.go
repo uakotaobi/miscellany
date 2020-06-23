@@ -226,6 +226,18 @@ func (m *Maze) drawRect(x, y, width, height int, fill rune) {
 			switch {
 			case (column == x || column == x + width - 1) && (row == y || row == y + height - 1):
 				proposedCell = m.intersection
+				if (height == 1 || width == 1) && m.cells[m.offset(column, row)] == m.floor {
+					// Minor optimization for walls of
+					// thickness 1.  This end of the line
+					// isn't touching anything, so replace
+					// the intersection with a
+					// better-looking rune.
+					if height == 1 {
+						proposedCell = m.horizontal
+					} else {
+						proposedCell = m.vertical
+					}
+				}
 			case column == x:
 				proposedCell = m.vertical
 				if !m.hasNeighbor(column, row, left, m.floor) {
@@ -379,6 +391,18 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 	//                      furthest distance from the position when
 	//                      recursion started.
 	// - bestDistance:      The value of that furthest distance.
+	//
+	//                      In general, the _shorter_ (yes, shorter) the
+	//                      best distance is, the higher-quality the maze
+	//                      is, since that means that more of it is
+	//                      devoted to misleading branches and dead ends.
+	//
+	//                      The longer this value is, the more
+	//                      labyrinthine the maze is, up to the point of
+	//                      being _unicursal_ (that is, having a single,
+	//                      winding path with no branches at all.)
+	//                      Unicursal mazes take a long time to traverse,
+	//                      but they are not challenging.
 	var findFurthestOuterCorridorPositionRecursive func(unitColumn, unitRow, currentDistance int, visitedMap *VisitedMap)
 	findFurthestOuterCorridorPositionRecursive = func(unitColumn, unitRow, currentDistance int, visitedMap *VisitedMap) {
 
@@ -482,7 +506,8 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		}
 	}
 
-	exitUnitColumn, exitUnitRow = finalCandidates[0].x, finalCandidates[0].y
+	i := rand.Intn(len(finalCandidates))
+	exitUnitColumn, exitUnitRow = finalCandidates[i].x, finalCandidates[i].y
 	points := []Point{
 		Point{x: entranceUnitColumn, y:entranceUnitRow},
 		Point{x: exitUnitColumn, y: exitUnitRow},
@@ -817,6 +842,13 @@ func (m *Maze) generateMaze(existingCells []rune) {
 // Draws a new maze.
 func (m *Maze) Generate() {
 
+	// Clear the buffer again.  (Someone could have changed m.floor since
+	// construction.)
+	m.cells = make([]rune, m.width * m.height)
+	for index := range(m.cells) {
+		m.cells[index] = m.floor
+	}
+
 	// Note that the existing maze may or may not be empty.
 	m.generateMaze(m.cells)
 }
@@ -871,10 +903,8 @@ func (m *Maze) Print() {
 
 func main() {
 
-	m := NewMaze(160, 60)
-	m.drawRect(0, 0, m.width, m.height, m.floor)
-	m.thickness = 5
-	m = NewMaze(105, 55); m.thickness = 6;
+	m := NewMaze(105, 38); m.thickness = 4;
+	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
 
 	// rand.Seed(12345678)
 	rand.Seed(time.Now().UTC().UnixNano())
