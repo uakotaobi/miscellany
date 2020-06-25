@@ -329,10 +329,12 @@ func (m *Maze) unitCoordinatesToRect(unitColumn, unitRow int) (x, y, width, heig
 	switch m.thickness {
 	case 1:
 		return unitColumn, unitRow, 1, 1
-	// This looks good, but we need to special-case unitWidth and
-	// unitHeight for it to work.
-	// case 2:
-	//	return unitColumn*2, unitRow*2, 2, 2
+	case 2:
+		// Notice how we special-case this so that the squares *don't*
+		// overlap.  (If they did, the corridors would have a width of
+		// 0.)  This mandates slight adjustments in a few other parts
+		// of the code.
+		return unitColumn*2, unitRow*2, 2, 2
 	default:
 		x = unitColumn * (m.thickness - 1)
 		y = unitRow * (m.thickness - 1)
@@ -595,12 +597,17 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		if m.thickness == 1 {
 			m.cells[m.offset(p.x, p.y)] = m.floor
 		} else {
+
 			x, y, width, height := m.unitCoordinatesToRect(p.x, p.y)
 
+			if m.thickness != 2 {
+				// Only cut the interior of the entrance and
+				// exit; leave the borders on the sides.
 			if horizontal {
 				x, width = x + 1, width - 2
 			} else {
 				y, height = y + 1, height - 2
+			}
 			}
 
 			for row := y; row < y + height; row++ {
@@ -630,7 +637,10 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	// The dimensions must be such that they can fit in an odd number of
 	// cells of size TxT, where T is the thickness.
 	unitWidth, unitHeight := m.width, m.height
-	if m.thickness > 1 {
+	if m.thickness == 2 {
+		unitWidth = m.width / 2
+		unitHeight = m.height / 2
+	} else if m.thickness > 1 {
 		unitWidth = (m.width - 1) / (m.thickness - 1)
 		unitHeight = (m.height - 1) / (m.thickness - 1)
 	}
