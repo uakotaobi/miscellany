@@ -28,6 +28,13 @@ const (
 	down
 )
 
+var directions []struct{x, y int} = []struct{x, y int} {
+	{-1, 0}, // Left vector
+	{0, -1}, // Up vector
+	{1, 0},  // Right vector
+	{0, 1},  // Down vector
+}
+
 func NewMaze(width, height int) Maze {
 	m := Maze{thickness: 1, intersection: '+', horizontal: '-', vertical: '|', floor: ' ', fill: '.' }
 	m.setSize(width, height)
@@ -425,27 +432,27 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		longestDistance int
 	}
 
-	// Returns a list of edge points that are the furthest distance away
-	// (each will have the same distance value.)
+	// Returns a list of outer corridor points that are the furthest
+	// distance away from the given start point (each will have the same
+	// distance from the start point.)
 	//
 	// Arguments:
-	// - unitColumn:        The X-coordinate of the current unit rectangle.
-	// - unitRow:           The Y-coordinate of the current unit rectangle.
+	// - unitColumn:        The X-coordinate of the starting unit rectangle.
+	// - unitRow:           The Y-coordinate of the starting unit rectangle.
 	// - currentDistance:	The Manhattan distance, in unit coordinates,
 	//			from our originating point when the recursion
 	//			started.
-	// - bestDistanceSoFar: The greatest currentDistance value returned by
-	//                      our children during recursive flood-filling.
-	// - VisitedMap:        An associative array mapping unit rectangle
+	// - VisitedMap:        A data structure that contains:
+	//   * visitedUnits:    An associative array mapping unit rectangle
 	//                      coordinates to booleans.  It is true for all
 	//                      points visited so far during maze recursion,
 	//                      and false for all other points.
 	//
-	// Returns:
-	// - furthest:          A slice of unit positions that have the
-	//                      furthest distance from the position when
-	//                      recursion started.
-	// - bestDistance:      The value of that furthest distance.
+	//   * furthestPoints:  A slice of unit positions that have the
+	//                      furthest distance from the starting position
+	//                      of the recursion.
+	//
+	//   * longestDistance: The value of that furthest distance.
 	//
 	//                      In general, the _shorter_ (yes, shorter) the
 	//                      best distance is, the higher-quality the maze
@@ -465,17 +472,7 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 
 		// Test all four neighbors in turn.
 		for i := 0; i < 4; i++ {
-			var dx, dy int
-			switch mask(1 << uint(i)) {
-			case left:
-				dx, dy = -1, 0
-			case up:
-				dx, dy = 0, -1
-			case right:
-				dx, dy = 1, 0
-			case down:
-				dx, dy = 0, 1
-			}
+			var dx, dy int = directions[i].x, directions[i].y
 
 			neighbor := Point{x: unitColumn + dx, y: unitRow + dy}
 			if neighbor.x < 1 || neighbor.x > unitWidth - 2 || neighbor.y < 1 || neighbor.y > unitHeight - 2 {
@@ -512,7 +509,7 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		// Add this point only if it qualifies.
 
 		if (unitColumn != 1 && unitColumn != unitWidth - 2) || (unitRow != 1 && unitRow != unitHeight - 2) {
-			// Not an outer corridor unit.
+			// Not a unit coordinate on an outer corridor.
 			return
 		}
 
@@ -524,11 +521,14 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		}
 	}
 
-	// The top and right outer corridors suffice for testing the
-	// entire thing.
+	// Test the entire perimeter of the outer corridor of the maze,
+	// looking in each case for the outer cooridor unit coordinate that is
+	// the furthest distance away.
+	//
+	// The winners become the maze's entrance and exit.
+
 	longestDistance := -1
 	finalCandidates := []Point{}
-
 	for _, p := range(rectPerimeter(unitWidth - 2, unitHeight - 2)) {
 		var unitColumn, unitRow int = p.x + 1, p.y + 1
 
@@ -783,18 +783,8 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		unitRow := 2 * rand.Intn(unitHeight / 2 + 1)
 		unitColumn := 2 * rand.Intn(unitWidth / 2 + 1)
 
-		var vx, vy int
-
-		switch randomDirection := mask(1 << uint(rand.Intn(4))); randomDirection {
-		case left:
-			vx, vy = -1, 0
-		case up:
-			vx, vy = 0, -1
-		case right:
-			vx, vy = 1, 0
-		case down:
-			vx, vy = 0, 1
-		}
+		randomDirection := directions[rand.Intn(4)]
+		vx, vy :=  randomDirection.x, randomDirection.y
 
 		x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
 		if m.rectContains(x, y, width, height, m.floor) {
