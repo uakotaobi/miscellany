@@ -8,13 +8,14 @@ import (
 type Maze struct {
 	width int
 	height int
-	thickness int
 	cells []rune
+	thickness int
 	intersection rune
-	vertical rune
 	horizontal rune
+	vertical rune
 	floor rune
 	fill rune
+	entrance, exit struct{x, y, width, height int}
 }
 
 // Constants used for neighbor specification.  For instance, "every neighbor
@@ -568,12 +569,16 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 
 	i := rand.Intn(len(finalCandidates))
 	exitUnitColumn, exitUnitRow = finalCandidates[i].x, finalCandidates[i].y
-	points := []Point{
-		Point{x: entranceUnitColumn, y:entranceUnitRow},
-		Point{x: exitUnitColumn, y: exitUnitRow},
+
+	for i := 0; i < 2; i++ {
+		var p Point
+		switch i {
+		case 0:
+			p = Point{x: entranceUnitColumn, y: entranceUnitRow}
+		case 1:
+			p = Point{x: exitUnitColumn, y: exitUnitRow}
 	}
 
-	for _, p := range(points) {
 		var horizontal bool
 
 		// The entrance and exit actually need to be on the outer walls, not
@@ -591,6 +596,14 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 		case p.y == unitHeight - 2: // On bottom edge of maze.
 			p.y++
 			horizontal = true
+		}
+
+		// Update the entrance and exit positions post-adjustment.
+		switch i {
+		case 0:
+			entranceUnitColumn, entranceUnitRow = p.x, p.y
+		case 1:
+			exitUnitColumn, exitUnitRow = p.x, p.y
 		}
 
 		// Knock out the entrance/exit itself.
@@ -888,7 +901,11 @@ func (m *Maze) generateMaze(existingCells []rune) {
 
 	} // end (while the maze is not full) [STEP 5]
 
-	_, _, _, _, solutionDistance := m.findEntranceAndExit(unitWidth, unitHeight)
+	entranceUnitColumn, entranceUnitRow, exitUnitColumn, exitUnitRow, solutionDistance := m.findEntranceAndExit(unitWidth, unitHeight)
+	m.entrance.x, m.entrance.y, m.entrance.width, m.entrance.height = m.unitCoordinatesToRect(entranceUnitColumn, entranceUnitRow)
+	m.exit.x, m.exit.y, m.exit.width, m.exit.height = m.unitCoordinatesToRect(exitUnitColumn, exitUnitRow)
+	// m.drawRect(m.entrance.x, m.entrance.y, m.entrance.width, m.entrance.height, '1')
+	// m.drawRect(m.exit.x, m.exit.y, m.exit.width, m.exit.height, '2')
 	fmt.Printf("Maze solution distance: %v.  Number of misses: %v\n", solutionDistance, misses)
 }
 
