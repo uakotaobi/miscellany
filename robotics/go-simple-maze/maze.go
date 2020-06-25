@@ -340,6 +340,58 @@ func (m *Maze) unitCoordinatesToRect(unitColumn, unitRow int) (x, y, width, heig
 	}
 }
 
+// Utility function for findEntranceAndExit().  Provides all the points around
+// the perimeter of the given rectangle.
+//
+// Arguments:
+// - width: The width of the rectangle.
+// - height: The height of the rectangle.
+//
+// Return value:
+// - Returns an array of points that lie along the perimeter of the rectangle,
+//   starting with the upper-left corner and proceeding clockwise.
+//
+// TODO: This is really better done as a generator function, or perhaps as an
+// iterator.
+func rectPerimeter(width, height int) []struct{x, y int} {
+	result := []struct{x, y int}{}
+
+	for i := 0; i < 2 * (width - 1 + height - 1); i++ {
+		switch {
+		case i < width - 1:
+			// Top of rect (excluding upper-right corner),
+			// heading right
+			result = append(result, struct{x, y int}{
+				x: i,
+				y: 0,
+			})
+		case i < (width - 1 + height - 1):
+			// Right side of rect (excluding bottom
+			// right), heading down
+			result = append(result, struct{x, y int}{
+				x: width - 1,
+				y: i - (width - 1),
+			})
+		case i < (2 * (width - 1) + height - 1):
+			// Bottom of rect (excluding lower-left
+			// corner), heading left
+			result = append(result, struct{x, y int}{
+				x: (width - 1) - (i - (width - 1) - (height - 1)),
+				y: height - 1,
+			})
+		default:
+			// Left side of rect (excluding top-left
+			// corner), heading up
+			result = append(result, struct{x, y int}{
+				x: 0,
+				y: (height - 1) - (i - (2 * (width - 1)) - (height - 1)),
+			})
+		}
+	}
+	return result
+}
+
+
 // Helper function for generateMaze().
 //
 // Let us define a unit rectangle as part of a maze's "outer corridor" if it
@@ -471,26 +523,27 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 
 	// The top and right outer corridors suffice for testing the
 	// entire thing.
-	longestDistance := 0
+	longestDistance := -1
 	finalCandidates := []Point{}
-	for i := 0; i < (unitWidth - 2) + (unitHeight - 2) - 1; i++ {
-		var unitColumn, unitRow int
 
-		if i < unitWidth - 2 {
-			// Topmost corridor (including upper-right corner.)
-			unitColumn, unitRow = i + 1, 1
-		} else {
-			// Rightmost corridor.
-			unitColumn, unitRow = unitWidth - 2, i - (unitWidth - 2) + 2
-		}
+	for _, p := range(rectPerimeter(unitWidth - 2, unitHeight - 2)) {
+		var unitColumn, unitRow int = p.x + 1, p.y + 1
 
 		x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
 		if !m.rectIsPassage(x, y, width, height) {
-			// Can't start entrances behind a wall.
-			continue
+			if unitWidth > 3 || unitHeight > 3 {
+				// Can't start entrances behind a wall.
+				continue
+			} else {
+				// Degenerate maze is only 3x3 units.
+				// The middle unit at (1, 1) is hemmed in on
+				// all 4 directions (and hence is not a
+				// passage.)  Ignore this so that we can cut
+				// an entrance and exit out.
+			}
 		}
 
-		visited := VisitedMap{visitedUnits: map[Point]bool{}, furthestPoints: []Point{}}
+		visited := VisitedMap{visitedUnits: map[Point]bool{}, furthestPoints: []Point{}, longestDistance: longestDistance}
 		findFurthestOuterCorridorPositionRecursive(unitColumn, unitRow, 0, &visited)
 
 		// Is this the best we've seen so far?
@@ -499,10 +552,15 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 			entranceUnitRow = unitRow
 			longestDistance = visited.longestDistance
 			finalCandidates = visited.furthestPoints
-			// fmt.Printf("Distance from entrance (%v) to exit (%v): %v\n",
-			//	Point{x: entranceUnitColumn, y: entranceUnitRow},
-			//	finalCandidates,
-			//	longestDistance)
+			fmt.Printf("[>] Distance from entrance (%v) to exit (%v): %v\n",
+				Point{x: entranceUnitColumn, y: entranceUnitRow},
+				finalCandidates,
+				longestDistance)
+		} else if visited.longestDistance == longestDistance {
+			// fmt.Printf("[=] Distance from entrance (%v) to exit (%v): %v\n",
+			//	Point{x: unitColumn, y: unitRow},
+			//	visited.furthestPoints,
+			//	visited.longestDistance)
 		}
 	}
 
@@ -590,24 +648,10 @@ func (m *Maze) generateMaze(existingCells []rune) {
 		m.drawRect(0, 0, unitWidth, unitHeight, m.floor)
 	} else {
 		// Iterate over the outer perimeter of the maze.
-		for i := 0; i < 2 * (unitWidth + unitHeight); i++ {
-			var x, y int
-			switch {
-			case i < unitWidth:
-				// Top edge.
-				x, y, _, _ = m.unitCoordinatesToRect(i, 0)
-			case i >= unitWidth && i < unitWidth + unitHeight:
-				// Right edge.
-				x, y, _, _ = m.unitCoordinatesToRect(unitWidth - 1, i - unitWidth)
-			case i >= unitWidth + unitHeight && i < (2 * unitWidth + unitHeight):
-				// Bottom edge (moving left.)
-				x, y, _, _ = m.unitCoordinatesToRect(unitWidth - (i - unitWidth - unitHeight) - 1, unitHeight - 1)
-			default:
-				// Left edge (moving up.)
-				x, y, _, _ = m.unitCoordinatesToRect(0, unitHeight - (i - (2 * unitWidth) - unitHeight) - 1)
-			}
+		for _, p := range(rectPerimeter(unitWidth, unitHeight)) {
+			x, y, width, height := m.unitCoordinatesToRect(p.x, p.y)
+			m.drawRect(x, y, width, height, m.fill)
 
-			m.drawRect(x, y, m.thickness, m.thickness, m.fill)
 		}
 	}
 
@@ -678,9 +722,8 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	numberOfUnoccupiedUnits := 0
 	for unitRow := 0; unitRow < unitHeight; unitRow += 2 {
 		for unitColumn := 0; unitColumn < unitWidth; unitColumn += 2 {
-			x, y, _, _ := m.unitCoordinatesToRect(unitColumn, unitRow)
-			unitUnoccupied := m.rectContains(x, y, m.thickness, m.thickness, m.floor)
-			if unitUnoccupied {
+			x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
+			if m.rectIsPassage(x, y, width, height) {
 				numberOfUnoccupiedUnits += 1
 			}
 		}
@@ -694,8 +737,8 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	printOccupiedUnitsDebug := func() {
 		for unitRow := 0; unitRow < unitHeight; unitRow += 2 {
 			for unitColumn := 0; unitColumn < unitWidth; unitColumn += 2 {
-				x, y, _, _ := m.unitCoordinatesToRect(unitColumn, unitRow)
-				unitUnoccupied := m.rectContains(x, y, m.thickness, m.thickness, m.floor)
+				x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
+				unitUnoccupied := m.rectContains(x, y, width, height, m.floor)
 				fmt.Printf("%5v ", unitUnoccupied)
 			}
 			fmt.Printf("\n")
