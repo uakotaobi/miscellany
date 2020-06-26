@@ -48,6 +48,30 @@ func NewMaze(width, height int) Maze {
 	return m
 }
 
+// Uses the empty areas of an existing maze as the basis for this new one.
+//
+// The idea here is that we can generate a large maze using thickness>1, then
+// generate a small maze on top of that in order to create a sort of
+// "super-maze."
+//
+//  To generate a singular maze, use NewMaze().
+//
+// Note: If you are going to change the display runes, you should probably
+// make sure m.floor continues to match other.floor.
+func NewMazeOverExisting(other Maze) Maze {
+
+	// Copy the other maze's parameters by value: same width, height,
+	// display runes....
+	m := other
+
+	// But take care of the reference member (the cells slice) using a
+	// deep copy.
+	m.cells = make([]rune, m.width * m.height)
+	copy(m.cells, other.cells)
+
+	return m
+}
+
 func max(a, b int) int {
 	if a > b {
 		return a
@@ -72,22 +96,12 @@ func abs(n int) int {
 // Alters the maze's dimensions.  The maze will need re-rendering after the
 // call.
 func (m *Maze) setSize(newWidth, newHeight int) {
-	// Moved these checks into generateMaze() itself.
-	// if newWidth < 3 {
-	//	newWidth = 3
-	// }
-	// if newWidth % 2 == 0 {
-	//	// Even width, round down.
-	//	newWidth -= 1
-	// }
-	// if newHeight < 3 {
-	//	newHeight = 3
-	// }
-	// if newHeight % 2 == 0 {
-	//	newHeight -= 1
-	// }
 	m.width = newWidth;
 	m.height = newHeight;
+
+	// TODO: What are we going to do about m.cells?  The right thing would
+	// be to copy the existing cells into the upper-left corner of the
+	// resized slice (or to truncate, if the new size was smaller.)
 }
 
 func (m *Maze) SetWidth(newWidth int) {
@@ -123,8 +137,8 @@ func (m *Maze) valid(x, y int) bool {
 	return (x >= 0 && y >= 0 && x < m.width && y < m.height)
 }
 
-// This utility function determines if the given coordinate has orthogonally
-// adjacent neighbors whose cells all contain the given value.
+// Utility function for drawRect().  Determines if the given coordinate has
+// orthogonally adjacent neighbors whose cells all contain the given value.
 //
 // The neighbor positions are specified by passing the appropriate bitwise
 // combination of the left, right, up and down constants into the mask
@@ -132,6 +146,10 @@ func (m *Maze) valid(x, y int) bool {
 //
 // Note that a mask of 0 will always return true.
 func (m *Maze) hasNeighbor(x, y int, mask mask, neighborValue rune) bool {
+	if m == nil {
+		// Missing receiver.
+		return false
+	}
 	if (mask & left) != 0 && m.valid(x - 1, y) && m.cells[m.offset(x - 1, y)] != neighborValue {
 		return false
 	}
@@ -182,6 +200,12 @@ func (m *Maze) validRect(x, y, width, height int) bool {
 // validRect() is false), the rectangle you get out of this function will also
 // be invalid.
 func (m *Maze) clipRect(x, y, width, height int) (int, int, int, int) {
+
+	if m == nil {
+		// Missing receiver.  Clipping does nothing.
+		return x, y, width, height
+	}
+
 	// Clip the rectangle so that we only draw the portion of it that is
 	// on-screen.
 	newX, newWidth := max(0, x), min(width, x + width)    // Handle x < 0
@@ -635,15 +659,13 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 }
 
 
-// Generates a maze by drawing it on top of the given set of cells.  Only the
-// blank cells (with a value equal to m.floor) will be overwritten.
+// Generates a maze by drawing it on top of any existing runes in m.cells that
+// are already present.  Only the blank cells (with a value equal to m.floor)
+// will be overwritten.  (This is the key to getting the maze-within-a-maze
+// effect to work.)
 //
 // This is the main generation function.
-func (m *Maze) generateMaze(existingCells []rune) {
-
-	// Start by duplicating the existing buffer.
-	m.cells = make([]rune, m.width * m.height)
-	copy(m.cells, existingCells)
+func (m *Maze) Generate() {
 
 	// Ensure that the borders of the buffer are lined with walls.
 
@@ -665,6 +687,10 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	}
 
 	// Draw a ring of walls around the maze.
+	//
+	// TODO: We shouldn't overwrite the border where it already exists,
+	// and that will necessitate different algorithms for thicknesses of 1
+	// and >1.
 	if m.thickness == 1 {
 		// For a thickness of 1, this looks better than a bunch of
 		// intersections.
@@ -897,46 +923,6 @@ func (m *Maze) generateMaze(existingCells []rune) {
 	// m.drawRect(m.entrance.x, m.entrance.y, m.entrance.width, m.entrance.height, '1')
 	// m.drawRect(m.exit.x, m.exit.y, m.exit.width, m.exit.height, '2')
 	fmt.Printf("Maze solution distance: %v.  Number of misses: %v\n", solutionDistance, misses)
-}
-
-// Draws a new maze.
-func (m *Maze) Generate() {
-
-	// Clear the buffer again.  (Someone could have changed m.floor since
-	// construction.)
-	m.cells = make([]rune, m.width * m.height)
-	for index := range(m.cells) {
-		m.cells[index] = m.floor
-	}
-
-	// Note that the existing maze may or may not be empty.
-	m.generateMaze(m.cells)
-}
-
-// Renders a maze in the empty areas of an existing maze.
-//
-// The idea here is that we can generate a large maze using thickness>1, then
-// generate a small maze on top of that in order to create a sort of
-// "super-maze."
-//
-//  To generate a traditional maze, use Generate().
-func (m *Maze) GenerateOverExisting(n *Maze) {
-	// Adopt the existing maze's parameters.
-	//
-	// TODO: We could use our own parameters instead, but then we'd need
-	// to know which cells in the existing maze to treat like floors or
-	// walls.
-	m = &Maze{
-		width: n.width,
-		height: n.height,
-		thickness: n.thickness,
-		intersection: n.intersection,
-		horizontal: n.horizontal,
-		vertical: n.vertical,
-		floor: n.floor,
-		fill: n.fill,
-	}
-	m.generateMaze(n.cells)
 }
 
 func  (m *Maze) Set(x, y int, cell rune) {
