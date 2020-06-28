@@ -1,8 +1,10 @@
 package main
 import (
+	"os"
 	"fmt"
 	"math/rand"
 	"time"
+	"github.com/akamensky/argparse"
 )
 
 type Maze struct {
@@ -13,6 +15,7 @@ type Maze struct {
 	intersection rune
 	horizontal rune
 	vertical rune
+	verbosity int
 	floor rune
 	fill rune
 	entrance, exit struct{x, y, width, height int}
@@ -949,12 +952,48 @@ func (m *Maze) Print() {
 
 func main() {
 
-	m := NewMaze(105, 38); m.thickness = 4;
+	parser := argparse.NewParser("maze", "Generates an ASCII maze with an entrance and an exit.")
+	var w *int = parser.Int("W", "width", &argparse.Options{
+		Required: false,
+		Help: "The width of the maze, in characters",
+		Default: 79,
+	})
+	var h *int = parser.Int("H", "height", &argparse.Options{
+		Required: false,
+		Help: "The height of the maze, in characters",
+		Default: 25,
+	})
+	var t *int = parser.Int("t", "thickness", &argparse.Options{
+		Required: false,
+		Help: "The thickness of the maze walls, in characters",
+		Default: 1,
+	})
+	var verbosity *int = parser.FlagCounter("v", "verbose", &argparse.Options{
+		Required: false,
+		Help: "Verboseness (prints auxiliary information in addition to the maze itself.)  Repeat twice for maximum verboseness.",
+	})
+
+	err := parser.Parse(os.Args)
+	if err != nil {
+		fmt.Print(parser.Usage(err))
+		return
+	}
+
+	m := NewMaze(*w, *h);
+	m.thickness = *t;
+	m.verbosity = *verbosity;
 	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
 
 	// rand.Seed(12345678)
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	m.Generate()
+
+	// x, y, width, height := m.unitCoordinatesToRect(2, 2)
+	// m.drawRect(x, y, (width - 1) * 2 + 1, (height - 1) * 2 + 1, m.floor)
+
 	m.Print()
+	//n := NewMazeOverExisting(m);
+	//n.Generate()
+	//n.Print()
 }
