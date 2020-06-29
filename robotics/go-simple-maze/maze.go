@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+	"unicode/utf8"
 	"github.com/akamensky/argparse"
 )
 
@@ -42,12 +43,7 @@ func NewMaze(width, height int) Maze {
 	m := Maze{thickness: 1, intersection: '+', horizontal: '-', vertical: '|', floor: ' ', fill: '.' }
 	m.setSize(width, height)
 
-	// Clear the buffer.
-	m.cells = make([]rune, m.width * m.height)
-	for index := range(m.cells) {
-		m.cells[index] = m.floor
-	}
-
+	m.Clear()
 	return m
 }
 
@@ -105,6 +101,15 @@ func (m *Maze) setSize(newWidth, newHeight int) {
 	// TODO: What are we going to do about m.cells?  The right thing would
 	// be to copy the existing cells into the upper-left corner of the
 	// resized slice (or to truncate, if the new size was smaller.)
+}
+
+// Erases the contents of the maze, overwriting it with the m.floor rune.
+// You should call this if m.floor changes.
+func (m *Maze) Clear() {
+	m.cells = make([]rune, m.width * m.height)
+	for index := range(m.cells) {
+		m.cells[index] = m.floor
+	}
 }
 
 func (m *Maze) SetWidth(newWidth int) {
@@ -582,10 +587,12 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 			entranceUnitRow = unitRow
 			longestDistance = visited.longestDistance
 			finalCandidates = visited.furthestPoints
-			fmt.Printf("[>] Distance from entrance (%v) to exit (%v): %v\n",
-				Point{x: entranceUnitColumn, y: entranceUnitRow},
-				finalCandidates,
-				longestDistance)
+			if m.verbosity > 1 {
+				fmt.Printf("[>] Distance from entrance (%v) to exit (%v): %v\n",
+					Point{x: entranceUnitColumn, y: entranceUnitRow},
+					finalCandidates,
+					longestDistance)
+			}
 		} else if visited.longestDistance == longestDistance {
 			// fmt.Printf("[=] Distance from entrance (%v) to exit (%v): %v\n",
 			//	Point{x: unitColumn, y: unitRow},
@@ -604,7 +611,7 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 			p = Point{x: entranceUnitColumn, y: entranceUnitRow}
 		case 1:
 			p = Point{x: exitUnitColumn, y: exitUnitRow}
-	}
+		}
 
 		var horizontal bool
 
@@ -643,11 +650,11 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 			if m.thickness != 2 {
 				// Only cut the interior of the entrance and
 				// exit; leave the borders on the sides.
-			if horizontal {
-				x, width = x + 1, width - 2
-			} else {
-				y, height = y + 1, height - 2
-			}
+				if horizontal {
+					x, width = x + 1, width - 2
+				} else {
+					y, height = y + 1, height - 2
+				}
 			}
 
 			for row := y; row < y + height; row++ {
@@ -787,6 +794,9 @@ func (m *Maze) Generate() {
 	// unoccupied unit rectangles in the maze.  I only use this as a
 	// sanity check for myself.
 	printOccupiedUnitsDebug := func() {
+		if m.verbosity < 1 {
+			return
+		}
 		for unitRow := 0; unitRow < unitHeight; unitRow += 2 {
 			for unitColumn := 0; unitColumn < unitWidth; unitColumn += 2 {
 				x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
@@ -887,12 +897,14 @@ func (m *Maze) Generate() {
 		// This produces a random odd number between minWallLength and maxWallLength.
 		wallLength := minWallLength + 2 * rand.Intn((maxWallLength - minWallLength) / 2 + 1)
 
-		fmt.Printf("I was able to draw a wall from (%v, %v) to (%v, %v) -- %v units long.  Actually chose %v units (%v <= %v <= %v).\n",
-			unitColumn, unitRow,
-			unitColumn + vx * (potentialWallLength - 1), unitRow + vy * (potentialWallLength - 1),
-			potentialWallLength,
-			wallLength,
-			minWallLength, wallLength, maxWallLength)
+		if m.verbosity > 1 {
+			fmt.Printf("I was able to draw a wall from (%v, %v) to (%v, %v) -- %v units long.  Actually chose %v units (%v <= %v <= %v).\n",
+				unitColumn, unitRow,
+				unitColumn + vx * (potentialWallLength - 1), unitRow + vy * (potentialWallLength - 1),
+				potentialWallLength,
+				wallLength,
+				minWallLength, wallLength, maxWallLength)
+		}
 
 		// Draw the wall.
 		currentUnitRow, currentUnitColumn = unitRow, unitColumn
@@ -925,7 +937,9 @@ func (m *Maze) Generate() {
 	m.exit.x, m.exit.y, m.exit.width, m.exit.height = m.unitCoordinatesToRect(exitUnitColumn, exitUnitRow)
 	// m.drawRect(m.entrance.x, m.entrance.y, m.entrance.width, m.entrance.height, '1')
 	// m.drawRect(m.exit.x, m.exit.y, m.exit.width, m.exit.height, '2')
-	fmt.Printf("Maze solution distance: %v.  Number of misses: %v\n", solutionDistance, misses)
+	if m.verbosity > 0 {
+		fmt.Printf("Maze solution distance: %v.  Number of misses: %v\n", solutionDistance, misses)
+	}
 }
 
 func  (m *Maze) Set(x, y int, cell rune) {
@@ -952,21 +966,47 @@ func (m *Maze) Print() {
 
 func main() {
 
-	parser := argparse.NewParser("maze", "Generates an ASCII maze with an entrance and an exit.")
+	m := NewMaze(79, 25)
+	parser := argparse.NewParser("maze", "Generates a maze out of Unicode characters with an entrance and an exit.")
 	var w *int = parser.Int("W", "width", &argparse.Options{
 		Required: false,
 		Help: "The width of the maze, in characters",
-		Default: 79,
+		Default: m.width,
 	})
 	var h *int = parser.Int("H", "height", &argparse.Options{
 		Required: false,
 		Help: "The height of the maze, in characters",
-		Default: 25,
+		Default: m.height,
 	})
 	var t *int = parser.Int("t", "thickness", &argparse.Options{
 		Required: false,
 		Help: "The thickness of the maze walls, in characters",
-		Default: 1,
+		Default: m.thickness,
+	})
+	var floor *string = parser.String("f", "floor", &argparse.Options{
+		Required: false,
+		Help: "The character to use for empty cooridor spaces",
+		Default: string(m.floor),
+	})
+	var fill *string = parser.String("F", "fill", &argparse.Options{
+		Required: false,
+		Help: "The character to use between walls when thickness > 2",
+		Default: string(m.fill),
+	})
+	var intersection *string = parser.String("i", "intersection", &argparse.Options{
+		Required: false,
+		Help: "The character to use for junctions between maze walls",
+		Default: string(m.intersection),
+	})
+	var horizontal *string = parser.String("x", "horizontal", &argparse.Options{
+		Required: false,
+		Help: "The character to use for horizontal maze walls",
+		Default: string(m.horizontal),
+	})
+	var vertical *string = parser.String("y", "vertical", &argparse.Options{
+		Required: false,
+		Help: "The character to use for vertical maze walls",
+		Default: string(m.vertical),
 	})
 	var verbosity *int = parser.FlagCounter("v", "verbose", &argparse.Options{
 		Required: false,
@@ -978,15 +1018,45 @@ func main() {
 		fmt.Print(parser.Usage(err))
 		return
 	}
+	badCharacterMessage := func(charType, value string) {
+		fmt.Fprintf(os.Stderr,
+			"The %v argument, \"%v\", has too many characters.  String length must be 1.\n",
+			charType,
+			value)
+		fmt.Print(parser.Usage(err))
+	}
+	switch {
+	case utf8.RuneCountInString(*fill) > 1:
+		badCharacterMessage("fill", *fill)
+		return
+	case utf8.RuneCountInString(*floor) > 1:
+		badCharacterMessage("floor", *floor)
+		return
+	case utf8.RuneCountInString(*intersection) > 1:
+		badCharacterMessage("intersection", *intersection)
+		return
+	case utf8.RuneCountInString(*horizontal) > 1:
+		badCharacterMessage("horizontal", *horizontal)
+		return
+	case utf8.RuneCountInString(*vertical) > 1:
+		badCharacterMessage("vertical", *vertical)
+		return
+	}
 
-	m := NewMaze(*w, *h);
+	m = NewMaze(*w, *h);
 	m.thickness = *t;
+	m.fill = ([]rune(*fill))[0]
+	m.floor = ([]rune(*floor))[0]
+	m.vertical = ([]rune(*vertical)[0])
 	m.verbosity = *verbosity;
+	m.horizontal = ([]rune(*horizontal))[0]
+	m.intersection = ([]rune(*intersection)[0])
 	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
 
 	// rand.Seed(12345678)
 	rand.Seed(time.Now().UTC().UnixNano())
 
+	m.Clear()
 	m.Generate()
 
 	// x, y, width, height := m.unitCoordinatesToRect(2, 2)
