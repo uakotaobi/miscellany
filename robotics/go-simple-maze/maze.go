@@ -688,7 +688,18 @@ func (m *Maze) findEntranceAndExit(unitWidth, unitHeight int) (entranceUnitColum
 // This is the main generation function.
 func (m *Maze) Generate() {
 
-	// Ensure that the borders of the buffer are lined with walls.
+	// If we need to bias the walls of a square maze due to minWallLength
+	// being large (so as to make it unicursal), then we choose the
+	// direction at random before rendering.
+	horizontalDirections := []struct {x, y int}{directions[0], directions[2]}
+	verticalDirections := []struct {x, y int}{directions[1], directions[3]}
+	var unicursalBiasDirections []struct {x, y int}
+	if rand.Intn(2) > 0 {
+		unicursalBiasDirections = horizontalDirections
+	} else {
+		unicursalBiasDirections = verticalDirections
+	}
+
 
 	// The dimensions must be such that they can fit in an odd number of
 	// cells of size TxT, where T is the thickness.
@@ -833,7 +844,41 @@ func (m *Maze) Generate() {
 		unitRow := 2 * rand.Intn(unitHeight / 2 + 1)
 		unitColumn := 2 * rand.Intn(unitWidth / 2 + 1)
 
+		// Note that the actual wall length will always be between 3
+		// and potentialWallLength, regardless of what minWallLength and
+		// maxWallLength are set to.  They are _guidelines_, not rigid
+		// constraints.
+		var (
+			minWallLength int = m.minWallLength
+			maxWallLength int = m.maxWallLength
+		)
+		minWallLength += (minWallLength + 1) % 2                        // Round even minimum lengths up to the next highest odd number
+		maxWallLength -= (maxWallLength + 1) % 2                        // Round even maximum lengths down to the next lowest odd number
+		if maxWallLength < minWallLength {
+			maxWallLength = minWallLength // minWallLength <= maxWallLength
+		}
+
 		randomDirection := directions[rand.Intn(4)]
+
+		// If longer walls are to be had in one orientation, bias the
+		// "random" directions slightly in favor of that orientation.
+		switch {
+		case minWallLength > unitWidth - 2 && minWallLength > unitHeight - 2 && unitWidth == unitHeight:
+			// Bias the maze in a consistent set of directions
+			// that were chosen in advance.
+			randomDirection = unicursalBiasDirections[rand.Intn(2)]
+		case minWallLength > unitHeight - 2 && (minWallLength < unitWidth - 2 || unitWidth > unitHeight):
+			// Bias the maze in the horizontal direction.
+			if rand.Intn(5) >= 0 {
+				randomDirection = horizontalDirections[rand.Intn(2)]
+			}
+		case minWallLength > unitWidth - 2 && (minWallLength < unitHeight - 2 || unitHeight > unitWidth):
+			// Bias the maze in the vertical direction.
+			if rand.Intn(5) >= 0 {
+				randomDirection = verticalDirections[rand.Intn(2)]
+			}
+		}
+
 		vx, vy :=  randomDirection.x, randomDirection.y
 
 		x, y, width, height := m.unitCoordinatesToRect(unitColumn, unitRow)
@@ -888,22 +933,19 @@ func (m *Maze) Generate() {
 
 		// Now that we know how long a wall we can draw, we choose the
 		// actual length at random.
-		//
-		// Note that the actual wall length will always be between 3
-		// and potentialWallLength, regardless of what minWallLength and
-		// maxWallLength are set to.  They are _guidelines_, not rigid
-		// constraints.
-		var (
-			minWallLength int = m.minWallLength
-			maxWallLength int = m.maxWallLength
-		)
-		if maxWallLength < minWallLength {
-			maxWallLength = minWallLength // minWallLength <= maxWallLength
-		}
-		minWallLength += (minWallLength + 1) % 2                        // Round even minimum lengths up to the next highest odd number
-		maxWallLength -= (maxWallLength + 1) % 2                        // Round even maximum lengths down to the next lowest odd number
 		minWallLength = min(potentialWallLength, max(3, minWallLength)) // 3 <= minWallLength <= potentialWallLength
 		maxWallLength = min(potentialWallLength, max(3, maxWallLength)) // 3 <= maxWallLength <= potentialWallLength
+
+		if potentialWallLength > maxWallLength {
+			// We're drawing a wall that's too short or too long.
+			// We'll allow it...some of the time.  (This
+			// time-wasting strategy will make the maze provide
+			// longer walls more often.)
+			if rand.Intn(50) > 0 {
+				misses++
+				continue
+			}
+		}
 
 		// This produces a random odd number between minWallLength and maxWallLength.
 		wallLength := minWallLength + 2 * rand.Intn((maxWallLength - minWallLength) / 2 + 1)
@@ -1025,7 +1067,7 @@ func main() {
 	})
 	var minWallLength *int = parser.Int("m", "min", &argparse.Options{
 		Required: false,
-		Help: "The desired minimum wall length, in cells.  This is a guideline, not a constraint, and will be met on a best-effort basis",
+		Help: "The desired minimum wall length, in cells.  This is normally a guideline rather than a constraint, but if this value exceeds the maximum horizontal or vertical wall length, all walls will have the maximum length",
 		Default: m.minWallLength,
 	})
 	var maxWallLength *int = parser.Int("M", "max", &argparse.Options{
