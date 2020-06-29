@@ -2,6 +2,7 @@ package main
 import (
 	"os"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 	"unicode/utf8"
@@ -19,6 +20,7 @@ type Maze struct {
 	verbosity int
 	floor rune
 	fill rune
+	minWallLength, maxWallLength int
 	entrance, exit struct{x, y, width, height int}
 }
 
@@ -40,7 +42,16 @@ var directions []struct{x, y int} = []struct{x, y int} {
 }
 
 func NewMaze(width, height int) Maze {
-	m := Maze{thickness: 1, intersection: '+', horizontal: '-', vertical: '|', floor: ' ', fill: '.' }
+	m := Maze{
+		thickness: 1,
+		intersection: '+',
+		horizontal: '-',
+		vertical: '|',
+		floor: ' ',
+		fill: '.',
+		minWallLength: 3,
+		maxWallLength: math.MaxInt64,
+	}
 	m.setSize(width, height)
 
 	m.Clear()
@@ -883,11 +894,11 @@ func (m *Maze) Generate() {
 		// maxWallLength are set to.  They are _guidelines_, not rigid
 		// constraints.
 		var (
-			minWallLength int = 50
-			maxWallLength int = 100
+			minWallLength int = m.minWallLength
+			maxWallLength int = m.maxWallLength
 		)
 		if maxWallLength < minWallLength {
-			minWallLength, maxWallLength = maxWallLength, minWallLength // minWallLength <= maxWallLength
+			maxWallLength = minWallLength // minWallLength <= maxWallLength
 		}
 		minWallLength += (minWallLength + 1) % 2                        // Round even minimum lengths up to the next highest odd number
 		maxWallLength -= (maxWallLength + 1) % 2                        // Round even maximum lengths down to the next lowest odd number
@@ -980,12 +991,12 @@ func main() {
 	})
 	var t *int = parser.Int("t", "thickness", &argparse.Options{
 		Required: false,
-		Help: "The thickness of the maze walls, in characters",
+		Help: "The thickness of the maze walls (or, equivalently, the size of the maze cells), in characters",
 		Default: m.thickness,
 	})
 	var floor *string = parser.String("f", "floor", &argparse.Options{
 		Required: false,
-		Help: "The character to use for empty cooridor spaces",
+		Help: "The character to use for empty corridor spaces",
 		Default: string(m.floor),
 	})
 	var fill *string = parser.String("F", "fill", &argparse.Options{
@@ -1011,6 +1022,16 @@ func main() {
 	var verbosity *int = parser.FlagCounter("v", "verbose", &argparse.Options{
 		Required: false,
 		Help: "Verboseness (prints auxiliary information in addition to the maze itself.)  Repeat twice for maximum verboseness.",
+	})
+	var minWallLength *int = parser.Int("m", "min", &argparse.Options{
+		Required: false,
+		Help: "The desired minimum wall length, in cells.  This is a guideline, not a constraint, and will be met on a best-effort basis",
+		Default: m.minWallLength,
+	})
+	var maxWallLength *int = parser.Int("M", "max", &argparse.Options{
+		Required: false,
+		Help: "The desired maximum wall length, in cells.  This is a guideline, not a constraint, and will be met on a best-effort basis",
+		Default: m.maxWallLength,
 	})
 
 	err := parser.Parse(os.Args)
@@ -1051,6 +1072,8 @@ func main() {
 	m.verbosity = *verbosity;
 	m.horizontal = ([]rune(*horizontal))[0]
 	m.intersection = ([]rune(*intersection)[0])
+	m.minWallLength = *minWallLength
+	m.maxWallLength = *maxWallLength
 	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
 
 	// rand.Seed(12345678)
