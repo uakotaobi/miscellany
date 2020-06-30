@@ -5,6 +5,9 @@ import (
 	"math"
 	"math/rand"
 	"time"
+	"encoding/binary"
+	"encoding/hex"
+	"hash/fnv"
 	"unicode/utf8"
 	"github.com/akamensky/argparse"
 )
@@ -1075,6 +1078,11 @@ func main() {
 		Help: "The desired maximum wall length, in cells.  This is a guideline, not a constraint, and will be met on a best-effort basis",
 		Default: m.maxWallLength,
 	})
+	var seed *string = parser.String("s", "seed", &argparse.Options{
+		Required: false,
+		Help: "A seed value for the random number generator.  You can use any string.  The default is an empty string, which seeds the generator based on the current time in nanoseconds.",
+		Default: "",
+	})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -1118,8 +1126,26 @@ func main() {
 	m.maxWallLength = *maxWallLength
 	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
 
-	// rand.Seed(12345678)
-	rand.Seed(time.Now().UTC().UnixNano())
+	hashAlgorithm := fnv.New64()
+	if *seed == "" {
+		// For the aid of reproducibility, convert the current
+		// timestamp to a hexadecimal string.
+		timestamp := time.Now().UTC().UnixNano()
+		b := make([]byte, 8)
+		binary.BigEndian.PutUint64(b, uint64(timestamp))
+		*seed = hex.EncodeToString(b)
+	}
+	hashAlgorithm.Write([]byte(*seed))
+	seedValue := int64(hashAlgorithm.Sum64())
+	switch *verbosity {
+	case 0:
+		break
+	case 1:
+		fmt.Fprintf(os.Stderr, "Random number seed: \"%v\"\n", *seed)
+	default:
+		fmt.Fprintf(os.Stderr, "Random number seed: \"%v\" (%v)\n", *seed, seedValue)
+	}
+	rand.Seed(seedValue)
 
 	m.Clear()
 	m.Generate()
