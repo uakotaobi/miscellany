@@ -24,6 +24,7 @@ type Maze struct {
 	floor rune
 	fill rune
 	minWallLength, maxWallLength int
+	maxWalls int
 	entrance, exit struct{x, y, width, height int}
 }
 
@@ -834,6 +835,7 @@ func (m *Maze) Generate() {
 	printOccupiedUnitsDebug()
 
 	misses := 0
+	wallCount := 0
 	for numberOfUnoccupiedUnits > 0 {
 
 		// STEP 2
@@ -985,6 +987,13 @@ func (m *Maze) Generate() {
 		//
 		// We know how many empty (odd-numbered) cells we just drew over.
 		numberOfUnoccupiedUnits -= (wallLength - 1)/2
+		wallCount += 1
+		if m.maxWalls > 0 && wallCount >= m.maxWalls {
+			// The maze will almost certainly be incomplete if
+			// this number is low, but this is useful for
+			// illustration purposes.
+			break
+		}
 
 	} // end (while the maze is not full) [STEP 5]
 
@@ -994,7 +1003,7 @@ func (m *Maze) Generate() {
 	// m.drawRect(m.entrance.x, m.entrance.y, m.entrance.width, m.entrance.height, '1')
 	// m.drawRect(m.exit.x, m.exit.y, m.exit.width, m.exit.height, '2')
 	if m.verbosity > 0 {
-		fmt.Printf("Maze solution distance: %v.  Number of misses: %v\n", solutionDistance, misses)
+		fmt.Printf("Maze solution distance: %v.  Walls: %v.  Misses: %v.\n", solutionDistance, wallCount, misses)
 	}
 }
 
@@ -1083,6 +1092,11 @@ func main() {
 		Help: "A seed value for the random number generator.  You can use any string.  The default is an empty string, which seeds the generator based on the current time in nanoseconds.",
 		Default: "",
 	})
+	var maxWalls *int = parser.Int("", "max-walls", &argparse.Options{
+		Required: false,
+		Help: "If this is greater than 0, then maze generation will end after this many walls are placed.  Low values will result in an incomplete maze, which can be useful to illustrate the algorithm",
+		Default: m.maxWalls,
+	})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -1124,6 +1138,7 @@ func main() {
 	m.intersection = ([]rune(*intersection)[0])
 	m.minWallLength = *minWallLength
 	m.maxWallLength = *maxWallLength
+	m.maxWalls = *maxWalls
 	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
 
 	hashAlgorithm := fnv.New64()
