@@ -5,6 +5,9 @@ import (
 	"math"
 	"math/rand"
 	"time"
+	"sort"
+	"strings"
+	"strconv"
 	"encoding/binary"
 	"encoding/hex"
 	"hash/fnv"
@@ -1043,10 +1046,10 @@ func main() {
 		Help: "The height of the maze, in characters",
 		Default: m.height,
 	})
-	var t *int = parser.Int("t", "thickness", &argparse.Options{
+	var t *[]string = parser.StringList("t", "thickness", &argparse.Options{
 		Required: false,
-		Help: "The thickness of the maze walls (or, equivalently, the size of the maze cells), in characters",
-		Default: m.thickness,
+		Help: "The thickness of the maze walls (or, equivalently, the size of the maze cells) in characters; the minimum value is 1.  Providing a comma-separated list of unique integers will produce nested mazes",
+		Default: []string{strconv.Itoa(m.thickness)},
 	})
 	var floor *string = parser.String("f", "floor", &argparse.Options{
 		Required: false,
@@ -1089,7 +1092,7 @@ func main() {
 	})
 	var seed *string = parser.String("s", "seed", &argparse.Options{
 		Required: false,
-		Help: "A seed value for the random number generator.  You can use any string.  The default is an empty string, which seeds the generator based on the current time in nanoseconds.",
+		Help: "A seed value for the random number generator.  You can use any string.  The default is an empty string, which seeds the generator based on the current time in nanoseconds",
 		Default: "",
 	})
 	var maxWalls *int = parser.Int("", "max-walls", &argparse.Options{
@@ -1128,19 +1131,37 @@ func main() {
 		return
 	}
 
-	m = NewMaze(*w, *h);
-	m.thickness = *t;
-	m.fill = ([]rune(*fill))[0]
-	m.floor = ([]rune(*floor))[0]
-	m.vertical = ([]rune(*vertical)[0])
-	m.verbosity = *verbosity;
-	m.horizontal = ([]rune(*horizontal))[0]
-	m.intersection = ([]rune(*intersection)[0])
-	m.minWallLength = *minWallLength
-	m.maxWallLength = *maxWallLength
-	m.maxWalls = *maxWalls
-	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
+	// Ensure that the thickness values are unique, and sort them in
+	// descending order.
+	thicknessValues := []int{}
+	for _, values := range(*t) {
+		for _, value := range(strings.Split(values, ",")) {
+			value := strings.TrimSpace(value)
+			if value == "" {
+				continue
+			}
+			n, err := strconv.Atoi(value)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Could not parse thickness argument \"%v\": token \"%v\" could not be converted to an integer.\n", values, value)
+				fmt.Print(parser.Usage(nil))
+				return
+			}
+			for i := range(thicknessValues) {
+				if thicknessValues[i] == n {
+					fmt.Fprintf(os.Stderr, "Duplicate value %v found in thickness argument \"%v\".\n", n, values)
+					fmt.Print(parser.Usage(nil))
+					return
+				}
+			}
+			thicknessValues = append(thicknessValues, n)
+		}
+	}
+	sort.Slice(thicknessValues, func(i, j int) bool {
+		return thicknessValues[i] >= thicknessValues[j]
+	})
+	fmt.Fprintf(os.Stderr, "Thickness values: %v\n", thicknessValues)
 
+	// Seed the random number generator reproducibly.
 	hashAlgorithm := fnv.New64()
 	if *seed == "" {
 		// For the aid of reproducibility, convert the current
@@ -1162,8 +1183,27 @@ func main() {
 	}
 	rand.Seed(seedValue)
 
+	// Generate a cumulative maze, using each successive thickness to make
+	// smaller and smaller walls.
+	m = NewMaze(*w, *h);
+	m.fill = ([]rune(*fill))[0]
+	m.floor = ([]rune(*floor))[0]
+	m.vertical = ([]rune(*vertical)[0])
+	m.verbosity = *verbosity;
+	m.horizontal = ([]rune(*horizontal))[0]
+	m.intersection = ([]rune(*intersection)[0])
+	m.minWallLength = *minWallLength
+	m.maxWallLength = *maxWallLength
+	m.maxWalls = *maxWalls
 	m.Clear()
+	// m.fill = '█'; m.vertical = '▒'; m.horizontal = '▒'; m.intersection = '▒'; m.floor = '░'
+	// ./simple_maze -F █ -y ▒ -x ▒ -i ▒ -f ░
+
+	for _, thickness := range thicknessValues {
+		m.thickness = thickness
 	m.Generate()
+	}
+
 
 	// x, y, width, height := m.unitCoordinatesToRect(2, 2)
 	// m.drawRect(x, y, (width - 1) * 2 + 1, (height - 1) * 2 + 1, m.floor)
