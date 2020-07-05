@@ -1,10 +1,8 @@
 PROJECT(roshambo CXX)
 cmake_minimum_required(VERSION 2.8)
 
-if(CMAKE_COMPILER_IS_GNUCXX)
-    # Enable C++14, with (nearly) maximum warnings
-    add_definitions(-Wall -Wextra --std=c++14)
-endif(CMAKE_COMPILER_IS_GNUCXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 
 # Cygwin kludge.
 set(CXX "g++")
@@ -15,5 +13,5 @@ include_directories("./include")
 
 # Add build target for the main game.  After compiling, run "bin/roshambo" to
 # play.
-add_executable(roshambo src/PlayerBase.cpp
-                        src/main.cpp)
+set(SOURCES src/PlayerBase.cpp src/main.cpp src/ComputerPlayer.cpp)
+add_executable(roshambo ${SOURCES})

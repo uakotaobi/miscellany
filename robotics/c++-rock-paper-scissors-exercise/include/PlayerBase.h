@@ -15,7 +15,7 @@ class PlayerBase {
         // The function should return a string for which valid() is true.
         virtual std::string play() = 0;
 
-        // OPTIONAL: Report to a player what moves moth it and an opponent
+        // OPTIONAL: Report to a player what moves both it and an opponent
         // made.  To prevent cheating, this is only called after a round of
         // the game is already finished.
         //
