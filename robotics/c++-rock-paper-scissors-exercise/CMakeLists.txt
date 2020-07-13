@@ -13,5 +13,5 @@ include_directories("./include")
 
 # Add build target for the main game.  After compiling, run "bin/roshambo" to
 # play.
-set(SOURCES src/PlayerBase.cpp src/main.cpp src/ComputerPlayer.cpp)
+set(SOURCES src/PlayerBase.cpp src/main.cpp src/ComputerPlayer.cpp src/HumanPlayer.cpp)
 add_executable(roshambo ${SOURCES})

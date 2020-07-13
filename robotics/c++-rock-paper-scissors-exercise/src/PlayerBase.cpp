@@ -73,19 +73,20 @@ bool defeats(const string& first, const string& second, bool print) {
     unsigned int secondIndex = indexTable[second];
     string message = messageTable[firstIndex][secondIndex];
 
+    cout << "\n";
     if (message == "") {
 
         // First didn't beat second, so print the message that would have been
         // printed if the tables were turned.
         if (print) {
-            cout << messageTable[secondIndex][firstIndex];
+            cout << "  " << messageTable[secondIndex][firstIndex];
         }
         return false;
 
     } else if (message == "Tie") {
 
         if (print) {
-            cout << message;
+            cout << "  " << message;
         }
 
         // If first tied second, then first did not beat second.
@@ -95,7 +96,7 @@ bool defeats(const string& first, const string& second, bool print) {
 
     // First beat second.
     if (print) {
-        cout << message;
+        cout << "  " << message;
     }
     return true;
 }

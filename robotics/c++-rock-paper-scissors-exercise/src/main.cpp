@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <iostream>
+#include "HumanPlayer.h"
 #include "ComputerPlayer.h"
 
 using std::unique_ptr;
@@ -12,7 +13,7 @@ using std::cout;
 // A simple driver for a simple game.
 int main() {
 
-    const int winsNeeded = 4;
+    const int winsNeeded = 5;
     const int maxRounds = 2 * winsNeeded - 1;
 
     // No winner yet.
@@ -21,7 +22,7 @@ int main() {
 
     // The game only supports two players.
     vector<unique_ptr<PlayerBase>> players;
-    players.push_back(unique_ptr<PlayerBase> (new ComputerPlayer()));
+    players.push_back(unique_ptr<PlayerBase> (new HumanPlayer()));
     players.push_back(unique_ptr<PlayerBase> (new ComputerPlayer()));
 
     vector<int> victories(players.size());
@@ -38,7 +39,7 @@ int main() {
         bool firstPlayerDefeatedSecondPlayer = defeats(a, b, true);
         cout << ".";
         if (a != b) {
-            cout << "  "
+            cout << "\n  "
                  << (firstPlayerDefeatedSecondPlayer ? players[0]->name() : players[1]->name())
                  << " wins.";
         }
@@ -56,7 +57,7 @@ int main() {
 
             int roundVictorIndex = (firstPlayerDefeatedSecondPlayer ? 0 : 1);
             victories[roundVictorIndex]++;
-            cout << "The score is " << victories[0] << " ("
+            cout << "  The score is " << victories[0] << " ("
                  << players[0]->name() << ") to " << victories[1] << " ("
                  << players[1]->name() << ").\n";
 
