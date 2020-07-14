@@ -1,6 +1,7 @@
 #ifndef PLAYER_BASE_H__
 #define PLAYER_BASE_H__
 
+#include <iostream>
 #include <string>
 
 class PlayerBase {
@@ -43,12 +44,12 @@ bool valid(const std::string& play);
 //
 // Any other permutation returns false.
 //
-// The print argument, if true, causes a sentence like "Paper covers
-// rock" or "Tie" to be printed to standard output.  Note that the
-// sentence is printed regardless of whether first beat second or
-// whether second beat first.
+// The stream argument can be any output stream (including stringstream.)  A
+// sentence like "Paper covers rock" or "Tie" will be printed to the stream.
+// Note that the sentence is printed regardless of whether first beat second
+// or whether second beat first.
 //
 // An invalid argument (like "nuke") throws an exception.
-bool defeats(const std::string& first, const std::string& second, bool print=false);
+bool defeats(const std::string& first, const std::string& second, std::ostream& out = std::cout);
 
 #endif // (#ifndef PLAYER_BASE_H__)

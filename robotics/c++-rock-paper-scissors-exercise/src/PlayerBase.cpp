@@ -8,6 +8,7 @@ using std::map;
 using std::cout;
 using std::string;
 using std::locale;
+using std::ostream;
 using std::tolower;
 using std::invalid_argument;
 
@@ -46,7 +47,7 @@ bool valid(const string& play) {
 // An invalid argument (like "nuke") throws an exception.
 //
 // Returns false otherwise.
-bool defeats(const string& first, const string& second, bool print) {
+bool defeats(const string& first, const string& second, ostream& out) {
 
     if (!valid(first)) {
         throw invalid_argument("defeats(): first argument (\"" + first + "\") is not valid.");
@@ -73,20 +74,19 @@ bool defeats(const string& first, const string& second, bool print) {
     unsigned int secondIndex = indexTable[second];
     string message = messageTable[firstIndex][secondIndex];
 
-    cout << "\n";
     if (message == "") {
 
         // First didn't beat second, so print the message that would have been
         // printed if the tables were turned.
-        if (print) {
-            cout << "  " << messageTable[secondIndex][firstIndex];
+        if (out) {
+            out << messageTable[secondIndex][firstIndex];
         }
         return false;
 
     } else if (message == "Tie") {
 
-        if (print) {
-            cout << "  " << message;
+        if (out) {
+            out << message;
         }
 
         // If first tied second, then first did not beat second.
@@ -95,8 +95,8 @@ bool defeats(const string& first, const string& second, bool print) {
     }
 
     // First beat second.
-    if (print) {
-        cout << "  " << message;
+    if (out) {
+        out << message;
     }
     return true;
 }

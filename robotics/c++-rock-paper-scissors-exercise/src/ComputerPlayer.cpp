@@ -31,6 +31,7 @@ using std::min;
 
 int ComputerPlayer::counter = 0;
 const string MOVES_DB_FILE = "./.moves";
+const unsigned int LOOKAHEAD_SIZE = 8;
 
 class MoveDatabase {
     public:
@@ -69,7 +70,7 @@ std::string ComputerPlayer::name() const { return name_; }
 
 string ComputerPlayer::play() {
 
-    MoveDatabase movedb(5);
+    MoveDatabase movedb(LOOKAHEAD_SIZE);
     string prediction = movedb.predict();
     if (prediction != "") {
 
@@ -90,7 +91,7 @@ void ComputerPlayer::remember(const string& myLastPlay, const string& theirLastP
 
 
     // Doesn't do anything right now.
-    MoveDatabase movedb(5);
+    MoveDatabase movedb(LOOKAHEAD_SIZE);
     movedb.remember(theirLastPlay, myLastPlay);
     movedb.save(MOVES_DB_FILE);
 }
@@ -144,7 +145,12 @@ void MoveDatabase::load(const string& filename) {
     in >> header;
 
     // Read in the lookahead size.
-    in >> limit;
+    // If ours is bigger, we ignore what we read.
+    size_t limit_from_file;
+    in >> limit_from_file;
+    if (limit_from_file > limit) {
+        limit = limit_from_file;
+    }
     in.get();
 
     // Read in the sequence of most recently-seen human moves.
@@ -200,7 +206,7 @@ void MoveDatabase::remember(const string& humanPlay, const string&) {
     // circumstances.
     for (unsigned int i = 1; i <= min(limit, mostRecentHumanMoves.size()); ++i) {
         vector<string> last_n_moves;
-        copy_n(mostRecentHumanMoves.rbegin(), i, back_inserter(last_n_moves));
+        copy_n(mostRecentHumanMoves.end() - i, i, back_inserter(last_n_moves));
 
         if (frequencies.find(last_n_moves) == frequencies.end()) {
             // This sequence has not been seen.
@@ -242,6 +248,11 @@ void MoveDatabase::remember(const string& humanPlay, const string&) {
 
 string MoveDatabase::predict() const {
 
+    if (mostRecentHumanMoves.empty()) {
+        cout << ">> Frequency analysis: No moves recorded yet.\n";
+        return "";
+    }
+
     map<string, int> table;
     vector<string> last_n_moves;
 
@@ -250,7 +261,7 @@ string MoveDatabase::predict() const {
         // Find the largest sequence of the human's most recent moves that we
         // can in the moves database.
         last_n_moves.clear();
-        copy_n(mostRecentHumanMoves.rbegin(), i, back_inserter(last_n_moves));
+        copy_n(mostRecentHumanMoves.end() - i, i, back_inserter(last_n_moves));
 
         const auto iter = frequencies.find(last_n_moves);
         if (iter != frequencies.end()) {
@@ -270,7 +281,7 @@ string MoveDatabase::predict() const {
         if (i == 1) {
             // The database is just too empty to use for predictions right
             // now.
-            cout << ">> Frequency analysis: Cannot find sequence in database (not populated enough.)\n";
+            // cout << ">> Frequency analysis: Cannot find sequence in database (not populated enough.)\n";
             return "";
         }
     }
@@ -299,6 +310,11 @@ string MoveDatabase::predict() const {
     } else if (mostFrequent == "paper") {
         response = "scissors";
     }
+
+    // Uncommenting this line should frustrate the human by going for ties
+    // instead of beating them!
+    //
+    // response = mostFrequent;
 
     // cout << ">> Frequency analysis: humans have most commonly chosen " << mostFrequent << " after [";
     // copy(last_n_moves.begin(),
