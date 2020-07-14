@@ -145,17 +145,19 @@ bool printOutcome(const string& leftPlayerName, const string& leftPlay,
 
                     // Print an arrow that points toward the defeated player.
                     if (leftPlayerDefeatedRightPlayer) {
-                        message = "   " + message;
+                        message = "    " + message;
                         if (message.back() != ' ') {
-                            message += " ";
+                            message += " -> ";
+                        } else {
+                            message += "->";
                         }
-                        message += "->";
                     } else if (leftPlay != rightPlay) {
-                        message = "<- " + message;
+                        message = " <- " + message;
                         if (message.back() != ' ') {
-                            message += " ";
+                            message += "    ";
+                        } else {
+                            message += "  ";
                         }
-                        message += "  ";
                     }
 
                     size_t lineMid = line.length() / 2;
