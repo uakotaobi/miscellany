@@ -31,7 +31,7 @@ using std::min;
 
 int ComputerPlayer::counter = 0;
 const string MOVES_DB_FILE = "./.moves";
-const unsigned int LOOKAHEAD_SIZE = 8;
+const unsigned int LOOKAHEAD_SIZE = 5;
 
 class MoveDatabase {
     public:
@@ -42,13 +42,16 @@ class MoveDatabase {
         void load(const string& filename);
     private:
         size_t limit;
+
+        // Making this a deque makes it easier to remove items from the front,
+        // even as we append them to the back.
         deque<string> mostRecentHumanMoves;
 
         // The keys for this map are vectors of strings representing the N
-        // most human move, where N is the lookahead limit.
+        // most recent human moves, where N is the lookahead limit.
         //
-        // The values for this map are simply a map counting the number of
-        // times that the human, in the given situation, gave a particular
+        // The values for this map are simply a hashtable counting the number of
+        // times that the human, in the given move sequence, gave a particular
         // response.
         //
         // For example, if the lookahead were 3, the last human moves were
@@ -60,10 +63,12 @@ class MoveDatabase {
 
 };
 
-ComputerPlayer::ComputerPlayer() : id_(++counter), name_() {
-    ostringstream stream;
-    stream << "CPU #" << id_;
-    name_ = stream.str();
+ComputerPlayer::ComputerPlayer(const std::string& name) : id_(++counter), name_(name) {
+    if (name_ == "") {
+        ostringstream stream;
+        stream << "CPU #" << id_;
+        name_ = stream.str();
+    }
 }
 
 std::string ComputerPlayer::name() const { return name_; }
@@ -79,7 +84,7 @@ string ComputerPlayer::play() {
 
     } else {
 
-        // Make a no-so-sophisticated, random play.
+        // Make a not-so-sophisticated, random play.
         default_random_engine generator(high_resolution_clock::now().time_since_epoch().count());
         uniform_int_distribution distribution(0, 2);
         const char* choices[] = { "rock", "paper", "scissors" };
@@ -89,8 +94,6 @@ string ComputerPlayer::play() {
 
 void ComputerPlayer::remember(const string& myLastPlay, const string& theirLastPlay) {
 
-
-    // Doesn't do anything right now.
     MoveDatabase movedb(LOOKAHEAD_SIZE);
     movedb.remember(theirLastPlay, myLastPlay);
     movedb.save(MOVES_DB_FILE);
@@ -268,11 +271,15 @@ string MoveDatabase::predict() const {
             table = iter->second;
 
             if (table.empty()) {
+                // This shouldn't happen.  The tables should always be
+                // populated with at least one entry (having a count of at
+                // least 1.)
+
                 // cout << ">> Frequency analysis: not enough data recorded for sequence [";
-                copy(last_n_moves.begin(),
-                     last_n_moves.end(),
-                     ostream_iterator<string>(cout, " "));
-                cout << "].\n";
+                // copy(last_n_moves.begin(),
+                //      last_n_moves.end(),
+                //      ostream_iterator<string>(cout, " "));
+                // cout << "].\n";
                 return "";
             }
             break;
@@ -315,6 +322,16 @@ string MoveDatabase::predict() const {
     // instead of beating them!
     //
     // response = mostFrequent;
+
+    // Use the prediction power to try to lose.
+    // if (mostFrequent == "rock") {
+    //     response = "scissors";
+    // } else if (mostFrequent == "scissors") {
+    //     response = "paper";
+    // } else if (mostFrequent == "paper") {
+    //     response = "rock";
+    // }
+
 
     // cout << ">> Frequency analysis: humans have most commonly chosen " << mostFrequent << " after [";
     // copy(last_n_moves.begin(),

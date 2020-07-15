@@ -10,7 +10,7 @@ using std::string;
 class ComputerPlayer : public PlayerBase {
     public:
 
-        ComputerPlayer();
+        ComputerPlayer(const std::string& name = "");
         ~ComputerPlayer() { }
         std::string name() const;
 

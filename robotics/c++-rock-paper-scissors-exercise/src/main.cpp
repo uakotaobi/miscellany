@@ -160,11 +160,12 @@ bool printOutcome(const string& leftPlayerName, const string& leftPlay,
                         }
                     }
 
+                    // Graft the message into line 4.
                     size_t lineMid = line.length() / 2;
                     size_t messageMid = message.length() / 2;
                     line = line.substr(0, lineMid - messageMid) + message + line.substr(lineMid + messageMid);
 
-                    // Add the winner to the appropriate "hand."
+                    // Add the winner string to the appropriate "hand."
                     if (leftPlayerDefeatedRightPlayer) {
                         line = "WINS" + line.substr(4);
                     } else if (leftPlay != rightPlay) {
