@@ -9,16 +9,15 @@ link](https://guides.github.com/features/mastering-markdown/).
 ## Section A
 
 This is a level 1 Menger Sponge, rendered as ASCII art:
-
 ```
             +----+----+----+       +-----+
-           /   U C H E    /|      /     /|
+           / kazooboi     /|      /     /|
           +    +----+    + |     +-----+ |
          /    /|   /    /  +     |     | |
-        +    +----+    +   |     |     | |
-       /  kazooboi    /  + |     |     | |
-      +----+----+----+  /| +     |     | |
-      |   swimmerbee | + | |     |     | |
+        +    +----+    +  U|     |     | |
+       / haha  NO  lol/  +C|     |     | |
+      +----+----+----+  /|H+     |     | |
+      |   swimmerbee | + |E|     |     | |
       |              | |-+ |     |     | |
       +    +----+    + |/  +     |     | |
       |    | +--|    | +  /      |     | |
