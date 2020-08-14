@@ -18,7 +18,7 @@ This is a level 1 Menger Sponge, rendered as ASCII art:
         +    +----+    +   |
        /  kazooboi    /  + |
       +----+----+----+  /| +
-      |              | + | |
+      |   swimmerbee | + | |
       |              | |-+ |
       +    +----+    + |/  +
       |    | +--|    | +  /
