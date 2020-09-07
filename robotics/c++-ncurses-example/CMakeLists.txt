@@ -1,0 +1,15 @@
+PROJECT(curses-example CXX)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+
+SET(CMAKE_CXX_STANDARD 17)
+SET(CMAKE_CXX_FLAGS "-Wall -Wextra")
+
+INCLUDE_DIRECTORIES("$HOME/.local/include")
+INCLUDE_DIRECTORIES("$HOME/.local/include/ncurses")
+LINK_DIRECTORIES("$HOME/.local/lib")
+
+ADD_EXECUTABLE(ce main.cpp)
+TARGET_LINK_LIBRARIES(ce "ncurses")
+
+# ADD_EXECUTABLE(mk multikeytest.cpp)
+# TARGET_LINK_LIBRARIES(mk "ncurses")
