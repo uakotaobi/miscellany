@@ -1,4 +1,5 @@
-#include <curses.h>
+// #include <curses.h>
+#include <SDL.h>
 #include <thread>
 #include <chrono>
 #include <algorithm>
@@ -7,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include <cstdint>  // uint8_t, uint16_t, uint32_t
 
 using std::vector;
 using std::max;
@@ -16,13 +18,44 @@ using std::abs;
 using std::sin;
 using std::cos;
 
-void pset(int x, int y, char c, int color = 1) {
-    int scrWidth = 0;
-    int scrHeight = 0;
-    getmaxyx(stdscr, scrHeight, scrWidth);
+void pset(SDL_Surface* surface, int x, int y, char c, int color = 1) {
+    int scrWidth = surface->w;
+    int scrHeight = surface->h;
 
     if (x < 0 || x >= scrWidth || y < 0 || y >= scrHeight) {
         return;
+    }
+    int offset = scrWidth * y + x;
+
+    uint8_t r, g, b;
+    switch (color) {
+        case 0: r = 0x00; g = 0x00; b = 0x00; break;
+        case 1: r = 0x00; g = 0x00; b = 0xAA; break;
+        case 2: r = 0x00; g = 0xAA; b = 0x00; break;
+        case 3: r = 0x00; g = 0xAA; b = 0xAA; break;
+        case 4: r = 0xAA; g = 0x00; b = 0x00; break;
+        case 5: r = 0xAA; g = 0x00; b = 0xAA; break;
+        case 6: r = 0xAA; g = 0xAA; b = 0x00; break;
+        case 7: r = 0xAA; g = 0xAA; b = 0xAA; break;
+    }
+    uint32_t packed_pixel = SDL_MapRGB(surface-format, r, g, b);
+
+    switch (surface->format->BytesPerPixel) {
+        case 1: {
+            uint8_t* target_pixel = reinterpret_cast<uint8_t*>(surface->pixels);
+            target_pixel[offset] = static_cast<uint8_t>(packed_pixel);
+            break;
+        }
+        case 2: {
+            uint16_t* target_pixel = reinterpret_cast<uint16_t*>(surface->pixels);
+            target_pixel[offset] = static_cast<uint16_t>(packed_pixel);
+            break;
+        }
+        case 3: {
+            uint32_t* target_pixel = reinterpret_cast<uint32_t*>(surface->pixels);
+            target_pixel[offset] = target_pixel[offset] static_cast<uint16_t>(packed_pixel);
+
+        }
     }
     //put a character at x y
     wmove(stdscr, y, x);
@@ -33,7 +66,7 @@ void pset(int x, int y, char c, int color = 1) {
 
 }
 
-void line(int x1, int y1, int x2, int y2, char c, int color = 1) {
+void line(SDL_Surface* surface, int x1, int y1, int x2, int y2, char c, int color = 1) {
     double px = x1;
     double py = y1;
     double vx = x2 - x1;
@@ -41,7 +74,7 @@ void line(int x1, int y1, int x2, int y2, char c, int color = 1) {
     double divisions = max(abs(vx), abs(vy));
 
     for (int i = 0; i < divisions; i++) {
-        pset(px, py, c, color);
+        pset(surface, px, py, c, color);
         px += vx / divisions;
         py += vy / divisions;
     }
@@ -163,7 +196,7 @@ array<double, 16> zRotate(double theta) {
     return matrix;
 }
 
-void polyhedron(const vector<Point>& vertices, const vector<vector<int>>& faces)  {
+void polyhedron(SDL_Surface* surface, const vector<Point>& vertices, const vector<vector<int>>& faces)  {
     int scrWidth = 0;
     int scrHeight = 0;
     getmaxyx(stdscr, scrHeight, scrWidth);
@@ -192,7 +225,7 @@ void polyhedron(const vector<Point>& vertices, const vector<vector<int>>& faces)
             x2 += scrWidth / 2;
             y2 += scrHeight / 2;
 
-            line(x1, y1, x2, y2, '*', j + 1);
+            line(surface, x1, y1, x2, y2, '*', j + 1);
             //line(121,30,121,5,'@',2);
             //cout << "Line: " << x1 << ", " << y1 << ", " << x2 << ", " << y2 << ".\n";
 
@@ -226,40 +259,36 @@ int main(int argc, const char* argv[]) {
             break;
     }
 
-    // Point p {0, 1, 0};
-    // //Point q = xRotate(p, theta);
-    // Point q = p;
-    // cout << p.x << ", " << p.y << ", " << p.z << "\n";
-    // cout << q.x << ", " << q.y << ", " << q.z << "\n";
-    // return 0;
+    // Initialize SDL.
+    if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+        SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
+        return 1;
+    }
 
-    //init curses
-    initscr();
+    // Initialize an SDL window.
+    SDL_Window* window = nullptr;
+    SDL_Renderer* renderer = nullptr;
+    if (SDL_CreateWindowAndRenderer(1280,                   // width, in pixels
+                                    960,                    // height, in pixels
+                                    SDL_WINDOW_RESIZABLE,
+                                    &window,
+                                    &renderer) != 0) {
 
-    //disable character buffering
-    cbreak();
+    }
 
-    //dont echo characters
-    noecho();
+    if (window == nullptr) {
+        // The window could not be spawned.
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create window: %s\n", SDL_GetError());
+        return 1;
+    }
 
-    //do not show cursor
-    curs_set(0);
-
-    //i want colors
-    start_color();
-
-    // getch() should not block.
-    nodelay(stdscr, TRUE);
-
-    init_pair(1, COLOR_RED, COLOR_BLACK);
-    init_pair(2, COLOR_GREEN, COLOR_BLACK);
-    init_pair(3, COLOR_YELLOW, COLOR_BLACK);
-    init_pair(4, COLOR_BLUE, COLOR_BLACK);
-    init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
-    init_pair(6, COLOR_CYAN, COLOR_BLACK);
-    init_pair(7, COLOR_WHITE, COLOR_BLACK);
-    init_pair(8, COLOR_BLACK, COLOR_BLACK);
-
+    // Initialize the surface we will render on.
+    SDL_Surface* screen = SDL_GetWindowSurface(window);
+    if (screen == nullptr) {
+        // Could not obtain a surface from the window (this is unusual.)
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create surface: %s\n", SDL_GetError());
+        return 1;
+    }
 
     //line(1,1,14,12,'*',3);
 
@@ -271,13 +300,26 @@ int main(int argc, const char* argv[]) {
 
     bool done = false;
     while (!done) {
-        int ch = getch();
-        if (ch == ERR) {
-            // Input not received
-        } else {
-            //pressed a key
-            if (ch == 'q') {
-                done = true;
+
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            // Keep eating the events until there's nothing left to munch on
+            // in the event queue.
+            switch (event.type) {
+                case SDL_KEYDOWN:
+                    if (event.keysym.sym == "Q") {
+                        done = true;
+                    }
+                    break;
+                case SDL_KEYUP:
+                    break;
+                case SDL_Quit:
+                    // Window was closed.
+                    done = true;
+                    break;
+                default:
+                    // Ignore all other events...for now.
+                    break;
             }
         }
 
@@ -294,16 +336,37 @@ int main(int argc, const char* argv[]) {
             vertices[i] = newPos;
         }
 
-        werase(stdscr);
-        polyhedron(vertices, faces);
-        wrefresh(stdscr);
+        // We're about to draw.  Lock the surface so we have access to the
+        // surface's pixel buffer.
+        if (SDL_MUSTLOCK(screen)) {
+            int error = SDL_LockSurface(screen);
+            if (error != 0) {
+                SDL_Log("Could not lock surface: %s\n", SDL_GetError());
+                return 1;
+            }
+        }
+
+        // Draw!
+        polyhedron(screen, vertices, faces);
+
+        // Make the changes to the surface visible.
+        SDL_UpdateWindowSurface(window);
+        if (SDL_MUSTLOCK(screen)) {
+            int error = SDL_UnlockSurface(screen);
+            if (error != 0) {
+                SDL_Log("Could not unlock surface: %s\n", SDL_GetError());
+                return 1;
+            }
+        }
 
         //need to sleep
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    // restore old terminal
-    endwin();
+    // Do not destroy the window's surface (screen); SDL_DestroyWindow will
+    // accomplish that on its own.
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
     for (unsigned i = 0; i < vertices.size(); i++) {
         cout << "Vertices[" << i << "] = " << vertices[i].x << ", " << vertices[i].y << ", " << vertices[i].z << "\n";
