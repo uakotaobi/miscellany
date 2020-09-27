@@ -266,29 +266,39 @@ int main(int argc, const char* argv[]) {
     }
 
     // Initialize an SDL window.
+    const int width = 1280;
+    const int height = 960;
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
-    if (SDL_CreateWindowAndRenderer(1280,                   // width, in pixels
-                                    960,                    // height, in pixels
+    if (SDL_CreateWindowAndRenderer(width,
+                                    height,
                                     SDL_WINDOW_RESIZABLE,
                                     &window,
                                     &renderer) != 0) {
-
-    }
-
-    if (window == nullptr) {
-        // The window could not be spawned.
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create window: %s\n", SDL_GetError());
+        // For some reason, we couldn't create the window and renderer.
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create window and renderer: %s\n", SDL_GetError());
         return 1;
     }
 
     // Initialize the surface we will render on.
-    SDL_Surface* screen = SDL_GetWindowSurface(window);
+    SDL_Surface* screen = SDL_CreateRGBSurfaceWithFormat(0,
+                                                         width,
+                                                         height,
+                                                         32,
+                                                         SDL_PIXELFORMAT_RGBA32);
+
     if (screen == nullptr) {
         // Could not obtain a surface from the window (this is unusual.)
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create surface: %s\n", SDL_GetError());
         return 1;
     }
+
+    // Create a texture that is both directly writable and easily manipulated
+    // (it doesn't get much simpler than RGBA32.)
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, width, height);
+    SDL_SetRenderTarget(renderer, texture);
+
+
 
     //line(1,1,14,12,'*',3);
 
@@ -346,18 +356,16 @@ int main(int argc, const char* argv[]) {
             }
         }
 
-        // Draw!
+        SDL_RenderClear(renderer);
+
+        // Draw onto the texture.
         polyhedron(screen, vertices, faces);
 
-        // Make the changes to the surface visible.
-        SDL_UpdateWindowSurface(window);
-        if (SDL_MUSTLOCK(screen)) {
-            int error = SDL_UnlockSurface(screen);
-            if (error != 0) {
-                SDL_Log("Could not unlock surface: %s\n", SDL_GetError());
-                return 1;
-            }
-        }
+        // Draw the texture onto the render.
+        SDL_RenderCopy(renderer, texture, );
+
+        // Make the changes to the renderer visible.
+        SDL_RenderPresent(renderer);
 
         //need to sleep
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -365,6 +373,8 @@ int main(int argc, const char* argv[]) {
 
     // Do not destroy the window's surface (screen); SDL_DestroyWindow will
     // accomplish that on its own.
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
 
