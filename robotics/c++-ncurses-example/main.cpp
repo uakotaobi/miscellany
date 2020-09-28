@@ -27,6 +27,7 @@ void pset(SDL_Surface* surface, int x, int y, char c, int color = 1) {
     }
     int offset = scrWidth * y + x;
 
+    // Translate the numeric color into an RGB color.
     uint8_t r, g, b;
     switch (color) {
         case 0: r = 0x00; g = 0x00; b = 0x00; break;
@@ -38,32 +39,10 @@ void pset(SDL_Surface* surface, int x, int y, char c, int color = 1) {
         case 6: r = 0xAA; g = 0xAA; b = 0x00; break;
         case 7: r = 0xAA; g = 0xAA; b = 0xAA; break;
     }
-    uint32_t packed_pixel = SDL_MapRGB(surface-format, r, g, b);
 
-    switch (surface->format->BytesPerPixel) {
-        case 1: {
-            uint8_t* target_pixel = reinterpret_cast<uint8_t*>(surface->pixels);
-            target_pixel[offset] = static_cast<uint8_t>(packed_pixel);
-            break;
-        }
-        case 2: {
-            uint16_t* target_pixel = reinterpret_cast<uint16_t*>(surface->pixels);
-            target_pixel[offset] = static_cast<uint16_t>(packed_pixel);
-            break;
-        }
-        case 3: {
-            uint32_t* target_pixel = reinterpret_cast<uint32_t*>(surface->pixels);
-            target_pixel[offset] = target_pixel[offset] static_cast<uint16_t>(packed_pixel);
-
-        }
-    }
-    //put a character at x y
-    wmove(stdscr, y, x);
-    waddch(stdscr, c | COLOR_PAIR(color));
-
-    //need to do wrefresh() to show new info
-    //wrefresh(stdscr);
-
+    // Turn the RGB color into a
+    uint32_t packed_pixel = SDL_MapRGB(surface->format, r, g, b);
+    static_cast<uint32_t*>(surface->pixels)[offset] = packed_pixel;
 }
 
 void line(SDL_Surface* surface, int x1, int y1, int x2, int y2, char c, int color = 1) {
@@ -197,9 +176,9 @@ array<double, 16> zRotate(double theta) {
 }
 
 void polyhedron(SDL_Surface* surface, const vector<Point>& vertices, const vector<vector<int>>& faces)  {
-    int scrWidth = 0;
-    int scrHeight = 0;
-    getmaxyx(stdscr, scrHeight, scrWidth);
+    int scrWidth = surface->w;
+    int scrHeight = surface->h;
+    // getmaxyx(stdscr, scrHeight, scrWidth);
 
 
     const double d = 30; // Distance from camera to eyeball before projection
@@ -212,6 +191,10 @@ void polyhedron(SDL_Surface* surface, const vector<Point>& vertices, const vecto
         for (unsigned int j = 0; j < currentFace.size(); j++) {
             Point currentVertex = currentFace[j];
             Point nextVertex = currentFace[(j + 1) % currentFace.size()];
+
+            // "Pull the camera back" so that we can see the entire shape.
+            //currentVertex.z += length/2;
+            //nextVertex.z += length/2;
 
             //use projection formula
             double x1 = (d * currentVertex.x) / (d + currentVertex.z);
@@ -233,6 +216,22 @@ void polyhedron(SDL_Surface* surface, const vector<Point>& vertices, const vecto
     }
     //line(121,15,121,5,'@',2);
 }
+
+// We have two choices for using textures:
+//
+// 1) USE THE TEXTURE AS A RENDER TARGET (SDL_TEXTUREACCESS_TARGET).
+//    - This means we cannot lock the texture's pixels.
+//    - We will have to draw to an RGB surface, then blit the surface to the
+//      texture.
+//    - Call SDL_RenderPresent() at the end.
+//
+// 2) USE THE TEXTURE FOR DIRECT PIXEL ACCESS (SDL_TEXTUREACCESS_STREAMING).
+//    - This means we can access the texture's pixels directly.
+//    - The texture cannot be used a rendering target, so we have to copy the
+//      texture to the renderer explicitly with SDL_RenderCopy().
+//    - Call SDL_RenderPresent() at the end.
+//
+// We chose (1).
 
 int main(int argc, const char* argv[]) {
 
@@ -295,10 +294,11 @@ int main(int argc, const char* argv[]) {
 
     // Create a texture that is both directly writable and easily manipulated
     // (it doesn't get much simpler than RGBA32.)
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, width, height);
-    SDL_SetRenderTarget(renderer, texture);
+    // SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, width, height);
 
-
+    // Assumption: Calling this means that drawing on the texture will update
+    // the renderer automatically at the time we call SDL_RenderPresent().
+    // SDL_SetRenderTarget(renderer, texture);
 
     //line(1,1,14,12,'*',3);
 
@@ -317,13 +317,13 @@ int main(int argc, const char* argv[]) {
             // in the event queue.
             switch (event.type) {
                 case SDL_KEYDOWN:
-                    if (event.keysym.sym == "Q") {
+                    if (event.key.keysym.sym == SDLK_q) {
                         done = true;
                     }
                     break;
                 case SDL_KEYUP:
                     break;
-                case SDL_Quit:
+                case SDL_QUIT:
                     // Window was closed.
                     done = true;
                     break;
@@ -346,26 +346,34 @@ int main(int argc, const char* argv[]) {
             vertices[i] = newPos;
         }
 
-        // We're about to draw.  Lock the surface so we have access to the
-        // surface's pixel buffer.
-        if (SDL_MUSTLOCK(screen)) {
-            int error = SDL_LockSurface(screen);
-            if (error != 0) {
-                SDL_Log("Could not lock surface: %s\n", SDL_GetError());
-                return 1;
-            }
-        }
+        // We're about to draw.  Clear the "screen" (really the surface
+        // buffer.)
+        // SDL_RenderClear(renderer);
+        SDL_FillRect(screen, nullptr, SDL_MapRGB(screen->format, 0, 0, 0));
 
-        SDL_RenderClear(renderer);
-
-        // Draw onto the texture.
+        // Draw onto the RGB surface.
         polyhedron(screen, vertices, faces);
 
+        // Blit the surface onto the texture.
+        //
+        // We can't do this directly (apparently.)  What we _can_ do is to
+        // create a texture from the RGB surface, and then copy _that_ to the
+        // renderer.
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, screen);
+        if (texture == nullptr) {
+            // Could not convert the surface into a a texture structure.
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create texture: %s\n", SDL_GetError());
+            return 1;
+        }
+
         // Draw the texture onto the render.
-        SDL_RenderCopy(renderer, texture, );
+        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
         // Make the changes to the renderer visible.
         SDL_RenderPresent(renderer);
+
+        // Clean up for the frame.
+        SDL_DestroyTexture(texture);
 
         //need to sleep
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -373,7 +381,6 @@ int main(int argc, const char* argv[]) {
 
     // Do not destroy the window's surface (screen); SDL_DestroyWindow will
     // accomplish that on its own.
-    SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
